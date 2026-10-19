@@ -1,0 +1,35 @@
+services:
+  broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: broker
+    volumes:
+      - ../src/broker.py:/app/main.py
+    ports:
+      - 5555:5555
+      - 5556:5556
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: server
+    volumes:
+      - ../src/server.py:/app/main.py
+    depends_on:
+      - broker
+    deploy:
+      replicas: 1
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: client
+    volumes:
+      - ../src/client.py:/app/main.py
+    depends_on:
+      - server
+    deploy:
+      replicas: 1

@@ -25,9 +25,11 @@ users = ["a", "pedro_client", "gabriel_client"]
 for u in users:
     res = login(u)
     if res == b"401":
-        print("erro de autenticacao")
+        print(f"erro de autenticacao: usuario '{u}'")
     if res == b"200":
-        print("logado!!!!")
-        # create_channel("canal_pedro")
+        print(f"logado como '{u}'!!!!")
+        res_channel = create_channel("canal_pedro")
+        if res_channel == b"200":
+            print("canal criado com sucesso!!!!")
 
 socket.close()

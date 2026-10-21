@@ -17,6 +17,7 @@ services:
     container_name: server
     volumes:
       - ../src/server.py:/app/main.py
+      - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
       - broker
     deploy:
@@ -29,6 +30,7 @@ services:
     container_name: client
     volumes:
       - ../src/client.py:/app/main.py
+      - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
       - server
     deploy:

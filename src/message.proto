@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package message;
+
+import "google/protobuf/timestamp.proto";
+
+message Request {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof payload {
+    ConnRequest conn = 2;
+    LoginRequest login = 3;
+    CreateChannelRequest create_channel = 4;
+  }
+}
+
+message Response {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof payload {
+    ConnReply conn_reply = 2;
+    LoginReply login_reply = 3;
+    CreateChannelReply create_channel_reply = 4;
+    ErrorReply error = 5;
+  }
+}
+
+message ConnRequest {
+  string message = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message ConnReply {
+  string message = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+// Login
+message LoginRequest {
+  string user = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message LoginReply {
+  int32 status = 1;   // 200 = ok, 401 = unauthorized
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+// Channels
+message CreateChannelRequest {
+  string name = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message CreateChannelReply {
+  int32 status = 1;   // 200 = created
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message ErrorReply {
+  string error = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message Empty {
+  google.protobuf.Timestamp timestamp = 1;
+}

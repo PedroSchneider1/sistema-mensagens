@@ -10,16 +10,39 @@ services:
       - 5555:5555
       - 5556:5556
 
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"          # host port 5433 -> container port 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   server:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: server
+    env_file:
+      - .env
     volumes:
       - ../src/server.py:/app/main.py
       - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
-      - broker
+      broker:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     deploy:
       replicas: 1
 
@@ -35,3 +58,6 @@ services:
       - server
     deploy:
       replicas: 1
+
+volumes:
+  pgdata:

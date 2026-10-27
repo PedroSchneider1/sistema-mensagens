@@ -10,6 +10,15 @@ services:
       - 5555:5555
       - 5556:5556
 
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxy
+    restart: unless-stopped
+    volumes:
+      - ../src/proxy.py:/app/main.py
+
   postgres:
     image: postgres:17-alpine
     container_name: postgres
@@ -19,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5433:5432"          # host port 5433 -> container port 5432
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -41,21 +50,44 @@ services:
     depends_on:
       broker:
         condition: service_started
+      proxy:
+        condition: service_started
       postgres:
         condition: service_healthy
     deploy:
       replicas: 1
 
-  client:
+  client_pedro:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: client
+    container_name: client_pedro
+    environment:
+      BOT_USER: pedro_client
     volumes:
       - ../src/client.py:/app/main.py
       - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
+      - broker
       - server
+      - proxy
+    deploy:
+      replicas: 1
+
+  client_gabriel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: client_gabriel
+    environment:
+      BOT_USER: gabriel_client
+    volumes:
+      - ../src/client.py:/app/main.py
+      - ../src/message_pb2.py:/app/message_pb2.py
+    depends_on:
+      - broker
+      - server
+      - proxy
     deploy:
       replicas: 1
 

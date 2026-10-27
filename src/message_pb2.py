@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\rmessage.proto\x12\x07message\x1a\x1fgoogle/protobuf/timestamp.proto\"\xca\x01\n\x07Request\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12$\n\x04\x63onn\x18\x02 \x01(\x0b\x32\x14.message.ConnRequestH\x00\x12&\n\x05login\x18\x03 \x01(\x0b\x32\x15.message.LoginRequestH\x00\x12\x37\n\x0e\x63reate_channel\x18\x04 \x01(\x0b\x32\x1d.message.CreateChannelRequestH\x00\x42\t\n\x07payload\"\xfd\x01\n\x08Response\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12(\n\nconn_reply\x18\x02 \x01(\x0b\x32\x12.message.ConnReplyH\x00\x12*\n\x0blogin_reply\x18\x03 \x01(\x0b\x32\x13.message.LoginReplyH\x00\x12;\n\x14\x63reate_channel_reply\x18\x04 \x01(\x0b\x32\x1b.message.CreateChannelReplyH\x00\x12$\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x13.message.ErrorReplyH\x00\x42\t\n\x07payload\"M\n\x0b\x43onnRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\tConnReply\x12\x0f\n\x07message\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\x0cLoginRequest\x12\x0c\n\x04user\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\nLoginReply\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"S\n\x14\x43reateChannelRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"S\n\x12\x43reateChannelReply\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"J\n\nErrorReply\x12\r\n\x05\x65rror\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"6\n\x05\x45mpty\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestampb\x06proto3'
+  serialized_pb=b'\n\rmessage.proto\x12\x07message\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x02\n\x07Request\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12$\n\x04\x63onn\x18\x02 \x01(\x0b\x32\x14.message.ConnRequestH\x00\x12&\n\x05login\x18\x03 \x01(\x0b\x32\x15.message.LoginRequestH\x00\x12\x37\n\x0e\x63reate_channel\x18\x04 \x01(\x0b\x32\x1d.message.CreateChannelRequestH\x00\x12\x35\n\rlist_channels\x18\x05 \x01(\x0b\x32\x1c.message.ListChannelsRequestH\x00\x12*\n\x07publish\x18\x06 \x01(\x0b\x32\x17.message.PublishRequestH\x00\x42\t\n\x07payload\"\xe8\x02\n\x08Response\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12(\n\nconn_reply\x18\x02 \x01(\x0b\x32\x12.message.ConnReplyH\x00\x12*\n\x0blogin_reply\x18\x03 \x01(\x0b\x32\x13.message.LoginReplyH\x00\x12;\n\x14\x63reate_channel_reply\x18\x04 \x01(\x0b\x32\x1b.message.CreateChannelReplyH\x00\x12$\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x13.message.ErrorReplyH\x00\x12\x39\n\x13list_channels_reply\x18\x06 \x01(\x0b\x32\x1a.message.ListChannelsReplyH\x00\x12.\n\rpublish_reply\x18\x07 \x01(\x0b\x32\x15.message.PublishReplyH\x00\x42\t\n\x07payload\"M\n\x0b\x43onnRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\tConnReply\x12\x0f\n\x07message\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\x0cLoginRequest\x12\x0c\n\x04user\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\nLoginReply\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"S\n\x14\x43reateChannelRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"S\n\x12\x43reateChannelReply\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"D\n\x13ListChannelsRequest\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"T\n\x11ListChannelsReply\x12\x10\n\x08\x63hannels\x18\x01 \x03(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"o\n\x0ePublishRequest\x12\x0c\n\x04user\x18\x01 \x01(\t\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"M\n\x0cPublishReply\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"n\n\x0bPublication\x12\x0f\n\x07\x63hannel\x18\x01 \x01(\t\x12\x0e\n\x06sender\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12-\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"J\n\nErrorReply\x12\r\n\x05\x65rror\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestampb\x06proto3'
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -63,6 +63,20 @@ _REQUEST = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='list_channels', full_name='message.Request.list_channels', index=4,
+      number=5, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='publish', full_name='message.Request.publish', index=5,
+      number=6, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -81,7 +95,7 @@ _REQUEST = _descriptor.Descriptor(
     fields=[]),
   ],
   serialized_start=60,
-  serialized_end=262,
+  serialized_end=361,
 )
 
 
@@ -128,6 +142,20 @@ _RESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='list_channels_reply', full_name='message.Response.list_channels_reply', index=5,
+      number=6, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='publish_reply', full_name='message.Response.publish_reply', index=6,
+      number=7, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -145,8 +173,8 @@ _RESPONSE = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=265,
-  serialized_end=518,
+  serialized_start=364,
+  serialized_end=724,
 )
 
 
@@ -184,8 +212,8 @@ _CONNREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=520,
-  serialized_end=597,
+  serialized_start=726,
+  serialized_end=803,
 )
 
 
@@ -223,8 +251,8 @@ _CONNREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=599,
-  serialized_end=674,
+  serialized_start=805,
+  serialized_end=880,
 )
 
 
@@ -262,8 +290,8 @@ _LOGINREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=676,
-  serialized_end=751,
+  serialized_start=882,
+  serialized_end=957,
 )
 
 
@@ -301,8 +329,8 @@ _LOGINREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=753,
-  serialized_end=828,
+  serialized_start=959,
+  serialized_end=1034,
 )
 
 
@@ -340,8 +368,8 @@ _CREATECHANNELREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=830,
-  serialized_end=913,
+  serialized_start=1036,
+  serialized_end=1119,
 )
 
 
@@ -379,8 +407,224 @@ _CREATECHANNELREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=915,
-  serialized_end=998,
+  serialized_start=1121,
+  serialized_end=1204,
+)
+
+
+_LISTCHANNELSREQUEST = _descriptor.Descriptor(
+  name='ListChannelsRequest',
+  full_name='message.ListChannelsRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='message.ListChannelsRequest.timestamp', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1206,
+  serialized_end=1274,
+)
+
+
+_LISTCHANNELSREPLY = _descriptor.Descriptor(
+  name='ListChannelsReply',
+  full_name='message.ListChannelsReply',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='channels', full_name='message.ListChannelsReply.channels', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='message.ListChannelsReply.timestamp', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1276,
+  serialized_end=1360,
+)
+
+
+_PUBLISHREQUEST = _descriptor.Descriptor(
+  name='PublishRequest',
+  full_name='message.PublishRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='user', full_name='message.PublishRequest.user', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='channel', full_name='message.PublishRequest.channel', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='message', full_name='message.PublishRequest.message', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='message.PublishRequest.timestamp', index=3,
+      number=4, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1362,
+  serialized_end=1473,
+)
+
+
+_PUBLISHREPLY = _descriptor.Descriptor(
+  name='PublishReply',
+  full_name='message.PublishReply',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='status', full_name='message.PublishReply.status', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='message.PublishReply.timestamp', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1475,
+  serialized_end=1552,
+)
+
+
+_PUBLICATION = _descriptor.Descriptor(
+  name='Publication',
+  full_name='message.Publication',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='channel', full_name='message.Publication.channel', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='sender', full_name='message.Publication.sender', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='message', full_name='message.Publication.message', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='message.Publication.timestamp', index=3,
+      number=4, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1554,
+  serialized_end=1664,
 )
 
 
@@ -418,46 +662,16 @@ _ERRORREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1000,
-  serialized_end=1074,
-)
-
-
-_EMPTY = _descriptor.Descriptor(
-  name='Empty',
-  full_name='message.Empty',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='timestamp', full_name='message.Empty.timestamp', index=0,
-      number=1, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1076,
-  serialized_end=1130,
+  serialized_start=1666,
+  serialized_end=1740,
 )
 
 _REQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _REQUEST.fields_by_name['conn'].message_type = _CONNREQUEST
 _REQUEST.fields_by_name['login'].message_type = _LOGINREQUEST
 _REQUEST.fields_by_name['create_channel'].message_type = _CREATECHANNELREQUEST
+_REQUEST.fields_by_name['list_channels'].message_type = _LISTCHANNELSREQUEST
+_REQUEST.fields_by_name['publish'].message_type = _PUBLISHREQUEST
 _REQUEST.oneofs_by_name['payload'].fields.append(
   _REQUEST.fields_by_name['conn'])
 _REQUEST.fields_by_name['conn'].containing_oneof = _REQUEST.oneofs_by_name['payload']
@@ -467,11 +681,19 @@ _REQUEST.fields_by_name['login'].containing_oneof = _REQUEST.oneofs_by_name['pay
 _REQUEST.oneofs_by_name['payload'].fields.append(
   _REQUEST.fields_by_name['create_channel'])
 _REQUEST.fields_by_name['create_channel'].containing_oneof = _REQUEST.oneofs_by_name['payload']
+_REQUEST.oneofs_by_name['payload'].fields.append(
+  _REQUEST.fields_by_name['list_channels'])
+_REQUEST.fields_by_name['list_channels'].containing_oneof = _REQUEST.oneofs_by_name['payload']
+_REQUEST.oneofs_by_name['payload'].fields.append(
+  _REQUEST.fields_by_name['publish'])
+_REQUEST.fields_by_name['publish'].containing_oneof = _REQUEST.oneofs_by_name['payload']
 _RESPONSE.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _RESPONSE.fields_by_name['conn_reply'].message_type = _CONNREPLY
 _RESPONSE.fields_by_name['login_reply'].message_type = _LOGINREPLY
 _RESPONSE.fields_by_name['create_channel_reply'].message_type = _CREATECHANNELREPLY
 _RESPONSE.fields_by_name['error'].message_type = _ERRORREPLY
+_RESPONSE.fields_by_name['list_channels_reply'].message_type = _LISTCHANNELSREPLY
+_RESPONSE.fields_by_name['publish_reply'].message_type = _PUBLISHREPLY
 _RESPONSE.oneofs_by_name['payload'].fields.append(
   _RESPONSE.fields_by_name['conn_reply'])
 _RESPONSE.fields_by_name['conn_reply'].containing_oneof = _RESPONSE.oneofs_by_name['payload']
@@ -484,14 +706,24 @@ _RESPONSE.fields_by_name['create_channel_reply'].containing_oneof = _RESPONSE.on
 _RESPONSE.oneofs_by_name['payload'].fields.append(
   _RESPONSE.fields_by_name['error'])
 _RESPONSE.fields_by_name['error'].containing_oneof = _RESPONSE.oneofs_by_name['payload']
+_RESPONSE.oneofs_by_name['payload'].fields.append(
+  _RESPONSE.fields_by_name['list_channels_reply'])
+_RESPONSE.fields_by_name['list_channels_reply'].containing_oneof = _RESPONSE.oneofs_by_name['payload']
+_RESPONSE.oneofs_by_name['payload'].fields.append(
+  _RESPONSE.fields_by_name['publish_reply'])
+_RESPONSE.fields_by_name['publish_reply'].containing_oneof = _RESPONSE.oneofs_by_name['payload']
 _CONNREQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _CONNREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _LOGINREQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _LOGINREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _CREATECHANNELREQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _CREATECHANNELREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_LISTCHANNELSREQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_LISTCHANNELSREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_PUBLISHREQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_PUBLISHREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_PUBLICATION.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _ERRORREPLY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
-_EMPTY.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
 DESCRIPTOR.message_types_by_name['Response'] = _RESPONSE
 DESCRIPTOR.message_types_by_name['ConnRequest'] = _CONNREQUEST
@@ -500,8 +732,12 @@ DESCRIPTOR.message_types_by_name['LoginRequest'] = _LOGINREQUEST
 DESCRIPTOR.message_types_by_name['LoginReply'] = _LOGINREPLY
 DESCRIPTOR.message_types_by_name['CreateChannelRequest'] = _CREATECHANNELREQUEST
 DESCRIPTOR.message_types_by_name['CreateChannelReply'] = _CREATECHANNELREPLY
+DESCRIPTOR.message_types_by_name['ListChannelsRequest'] = _LISTCHANNELSREQUEST
+DESCRIPTOR.message_types_by_name['ListChannelsReply'] = _LISTCHANNELSREPLY
+DESCRIPTOR.message_types_by_name['PublishRequest'] = _PUBLISHREQUEST
+DESCRIPTOR.message_types_by_name['PublishReply'] = _PUBLISHREPLY
+DESCRIPTOR.message_types_by_name['Publication'] = _PUBLICATION
 DESCRIPTOR.message_types_by_name['ErrorReply'] = _ERRORREPLY
-DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,), {
@@ -560,19 +796,47 @@ CreateChannelReply = _reflection.GeneratedProtocolMessageType('CreateChannelRepl
   })
 _sym_db.RegisterMessage(CreateChannelReply)
 
+ListChannelsRequest = _reflection.GeneratedProtocolMessageType('ListChannelsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTCHANNELSREQUEST,
+  '__module__' : 'message_pb2'
+  # @@protoc_insertion_point(class_scope:message.ListChannelsRequest)
+  })
+_sym_db.RegisterMessage(ListChannelsRequest)
+
+ListChannelsReply = _reflection.GeneratedProtocolMessageType('ListChannelsReply', (_message.Message,), {
+  'DESCRIPTOR' : _LISTCHANNELSREPLY,
+  '__module__' : 'message_pb2'
+  # @@protoc_insertion_point(class_scope:message.ListChannelsReply)
+  })
+_sym_db.RegisterMessage(ListChannelsReply)
+
+PublishRequest = _reflection.GeneratedProtocolMessageType('PublishRequest', (_message.Message,), {
+  'DESCRIPTOR' : _PUBLISHREQUEST,
+  '__module__' : 'message_pb2'
+  # @@protoc_insertion_point(class_scope:message.PublishRequest)
+  })
+_sym_db.RegisterMessage(PublishRequest)
+
+PublishReply = _reflection.GeneratedProtocolMessageType('PublishReply', (_message.Message,), {
+  'DESCRIPTOR' : _PUBLISHREPLY,
+  '__module__' : 'message_pb2'
+  # @@protoc_insertion_point(class_scope:message.PublishReply)
+  })
+_sym_db.RegisterMessage(PublishReply)
+
+Publication = _reflection.GeneratedProtocolMessageType('Publication', (_message.Message,), {
+  'DESCRIPTOR' : _PUBLICATION,
+  '__module__' : 'message_pb2'
+  # @@protoc_insertion_point(class_scope:message.Publication)
+  })
+_sym_db.RegisterMessage(Publication)
+
 ErrorReply = _reflection.GeneratedProtocolMessageType('ErrorReply', (_message.Message,), {
   'DESCRIPTOR' : _ERRORREPLY,
   '__module__' : 'message_pb2'
   # @@protoc_insertion_point(class_scope:message.ErrorReply)
   })
 _sym_db.RegisterMessage(ErrorReply)
-
-Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), {
-  'DESCRIPTOR' : _EMPTY,
-  '__module__' : 'message_pb2'
-  # @@protoc_insertion_point(class_scope:message.Empty)
-  })
-_sym_db.RegisterMessage(Empty)
 
 
 # @@protoc_insertion_point(module_scope)

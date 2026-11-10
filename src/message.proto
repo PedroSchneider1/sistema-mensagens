@@ -8,6 +8,7 @@ import "google/protobuf/timestamp.proto";
 
 message Request {
   google.protobuf.Timestamp timestamp = 1;
+  int64 clock = 7;   // relógio lógico de quem envia
   oneof payload {
     ConnRequest conn = 2;
     LoginRequest login = 3;
@@ -19,6 +20,7 @@ message Request {
 
 message Response {
   google.protobuf.Timestamp timestamp = 1;
+  int64 clock = 8;   // relógio lógico de quem envia
   oneof payload {
     ConnReply conn_reply = 2;
     LoginReply login_reply = 3;
@@ -93,9 +95,59 @@ message Publication {
   string sender = 2;
   string message = 3;
   google.protobuf.Timestamp timestamp = 4;
+  int64 clock = 5;   // relógio lógico de quem envia
 }
 
 message ErrorReply {
   string error = 1;
   google.protobuf.Timestamp timestamp = 2;
+}
+
+// ---------- Serviço de referência (servidor <-> referência, REQ/REP) ----------
+
+message ReferenceRequest {
+  google.protobuf.Timestamp timestamp = 1;
+  int64 clock = 2;   // relógio lógico de quem envia
+  oneof payload {
+    RankRequest rank = 3;
+    ServerListRequest list = 4;
+    HeartbeatRequest heartbeat = 5;
+  }
+}
+
+message ReferenceResponse {
+  google.protobuf.Timestamp timestamp = 1;   // hora de referência (relógio físico)
+  int64 clock = 2;   // relógio lógico de quem envia
+  oneof payload {
+    RankReply rank_reply = 3;
+    ServerListReply list_reply = 4;
+    HeartbeatReply heartbeat_reply = 5;
+  }
+}
+
+message RankRequest {
+  string name = 1;
+}
+
+message RankReply {
+  int32 rank = 1;
+}
+
+message ServerListRequest {}
+
+message ServerInfo {
+  string name = 1;
+  int32 rank = 2;
+}
+
+message ServerListReply {
+  repeated ServerInfo servers = 1;
+}
+
+message HeartbeatRequest {
+  string name = 1;
+}
+
+message HeartbeatReply {
+  int32 status = 1;   // 200 = ok, 404 = servidor fora da lista (deve pedir o rank de novo)
 }

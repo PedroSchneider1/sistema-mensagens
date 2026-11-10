@@ -30,11 +30,27 @@ sub.connect("tcp://proxy:5558")
 
 subscriptions: set[str] = set()
 
+# Relógio lógico do processo
+clock = 0
+
 
 def now() -> Timestamp:
     ts = Timestamp()
     ts.GetCurrentTime()
     return ts
+
+
+def tick() -> int:
+    """Incrementa o relógio lógico antes de enviar uma mensagem."""
+    global clock
+    clock += 1
+    return clock
+
+
+def observe(received: int) -> None:
+    """Atualiza o relógio lógico ao receber uma mensagem."""
+    global clock
+    clock = max(clock, received)
 
 
 def fmt(ts: Timestamp) -> str:
@@ -43,9 +59,11 @@ def fmt(ts: Timestamp) -> str:
 
 def call(request: pb.Request) -> pb.Response:
     request.timestamp.CopyFrom(now())
+    request.clock = tick()
     req.send(request.SerializeToString())
     resp = pb.Response()
     resp.ParseFromString(req.recv())
+    observe(resp.clock)
     return resp
 
 
@@ -103,6 +121,7 @@ def handle_incoming(topic: bytes, payload: bytes) -> None:
     channel = topic.decode()
     event = pb.Publication()
     event.ParseFromString(payload)
+    observe(event.clock)
 
     # O ZeroMQ casa por prefixo: a inscrição 'canal_1' também recebe 'canal_12'.
     # Filtra o nome exato para não exibir mensagens de outro canal.
@@ -111,7 +130,8 @@ def handle_incoming(topic: bytes, payload: bytes) -> None:
 
     print(
         f"[{event.channel}] {event.sender}: {event.message} | "
-        f"enviado: {fmt(event.timestamp)} | recebido: {fmt(now())}",
+        f"enviado: {fmt(event.timestamp)} | recebido: {fmt(now())} | "
+        f"relógio lógico: {event.clock} -> {clock}",
         flush=True,
     )
 

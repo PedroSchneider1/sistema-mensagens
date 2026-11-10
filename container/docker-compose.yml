@@ -19,6 +19,18 @@ services:
     volumes:
       - ../src/proxy.py:/app/main.py
 
+  reference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reference
+    restart: unless-stopped
+    environment:
+      HEARTBEAT_TIMEOUT: 30
+    volumes:
+      - ../src/reference.py:/app/main.py
+      - ../src/message_pb2.py:/app/message_pb2.py
+
   postgres:
     image: postgres:17-alpine
     container_name: postgres
@@ -44,6 +56,8 @@ services:
     container_name: server
     env_file:
       - .env
+    environment:
+      SERVER_NAME: server_1
     volumes:
       - ../src/server.py:/app/main.py
       - ../src/message_pb2.py:/app/message_pb2.py
@@ -51,6 +65,8 @@ services:
       broker:
         condition: service_started
       proxy:
+        condition: service_started
+      reference:
         condition: service_started
       postgres:
         condition: service_healthy

@@ -48,14 +48,25 @@ CREATE TABLE IF NOT EXISTS publications (
 USERS = {"pedro_client", "gabriel_client"}
 
 SERVER_NAME = os.environ.get("SERVER_NAME", socket.gethostname())
+PEER_PORT = int(os.environ.get("PEER_PORT", "5560"))
+# Endereço informado à referência para os outros servidores nos contactarem
+SERVER_ADDRESS = os.environ.get("SERVER_ADDRESS", f"tcp://{SERVER_NAME}:{PEER_PORT}")
 HEARTBEAT_EVERY = 10          # mensagens de clientes entre heartbeats
+SYNC_EVERY = 15               # mensagens de clientes entre sincronizações do relógio
 REFERENCE_TIMEOUT_MS = 2000
+PEER_TIMEOUT_MS = 3000
 
 # Relógio lógico do processo
 clock = 0
 
-# Ajuste do relógio físico em relação à referência (ns)
+# Ajuste do relógio físico em relação ao coordenador (ns)
 offset_ns = 0
+
+# Nome do servidor eleito coordenador (None enquanto não há um)
+coordinator: str | None = None
+
+# Um servidor de rank menor pediu eleição: devemos iniciar a nossa
+election_pending = False
 
 
 def connect_db():
@@ -116,6 +127,15 @@ rep.connect("tcp://broker:5556")
 pub = context.socket(zmq.PUB)
 pub.connect("tcp://proxy:5557")
 
+# Requisições de outros servidores (relógio e eleição)
+peer_rep = context.socket(zmq.REP)
+peer_rep.bind(f"tcp://*:{PEER_PORT}")
+
+# Anúncios do coordenador eleito (via proxy XPUB)
+sub = context.socket(zmq.SUB)
+sub.connect("tcp://proxy:5558")
+sub.setsockopt_string(zmq.SUBSCRIBE, "servers")
+
 
 def connect_reference() -> zmq.Socket:
     sock = context.socket(zmq.REQ)
@@ -124,20 +144,19 @@ def connect_reference() -> zmq.Socket:
     return sock
 
 
-# Serviço de referência (rank, lista de servidores e hora)
+# Serviço de referência (rank, lista de servidores e heartbeat)
 ref = connect_reference()
 
 
 def call_reference(request: pb.ReferenceRequest) -> pb.ReferenceResponse | None:
-    """Envia a requisição à referência e sincroniza o relógio físico (Cristian).
+    """Envia a requisição à referência.
 
     Retorna None se a referência não responder a tempo.
     """
-    global ref, offset_ns
+    global ref
 
     request.clock = tick()
     request.timestamp.CopyFrom(now())
-    sent_ns = time.time_ns()
     ref.send(request.SerializeToString())
 
     if not ref.poll(REFERENCE_TIMEOUT_MS):
@@ -148,18 +167,14 @@ def call_reference(request: pb.ReferenceRequest) -> pb.ReferenceResponse | None:
 
     resp = pb.ReferenceResponse()
     resp.ParseFromString(ref.recv())
-    received_ns = time.time_ns()
     observe(resp.clock)
-
-    # Hora da referência + metade do tempo de ida e volta
-    reference_ns = resp.timestamp.ToNanoseconds() + (received_ns - sent_ns) // 2
-    offset_ns = reference_ns - received_ns
     return resp
 
 
 def request_rank() -> int:
     while True:
-        resp = call_reference(pb.ReferenceRequest(rank=pb.RankRequest(name=SERVER_NAME)))
+        resp = call_reference(pb.ReferenceRequest(
+            rank=pb.RankRequest(name=SERVER_NAME, address=SERVER_ADDRESS)))
         if resp is not None:
             return resp.rank_reply.rank
         print("aguardando serviço de referência", flush=True)
@@ -178,8 +193,101 @@ def send_heartbeat() -> None:
         print(f"heartbeat ok | ajuste do relógio: {offset_ns / 1e6:+.3f} ms", flush=True)
 
 
+def list_servers() -> list[pb.ServerInfo] | None:
+    resp = call_reference(pb.ReferenceRequest(list=pb.ServerListRequest()))
+    return list(resp.list_reply.servers) if resp is not None else None
+
+
+def call_peer(address: str, request: pb.ServerRequest) -> tuple[pb.ServerResponse, int, int] | None:
+    """Envia a requisição a outro servidor.
+
+    Retorna a resposta com os instantes de envio e recebimento (ns), ou None se
+    o servidor não responder a tempo.
+    """
+    sock = context.socket(zmq.REQ)
+    sock.setsockopt(zmq.LINGER, 0)
+    sock.connect(address)
+
+    try:
+        request.clock = tick()
+        request.timestamp.CopyFrom(now())
+        sent_ns = time.time_ns()
+        sock.send(request.SerializeToString())
+
+        if not sock.poll(PEER_TIMEOUT_MS):
+            return None
+
+        resp = pb.ServerResponse()
+        resp.ParseFromString(sock.recv())
+        received_ns = time.time_ns()
+        observe(resp.clock)
+        return resp, sent_ns, received_ns
+    finally:
+        sock.close()
+
+
+def announce_coordinator() -> None:
+    """Assume a coordenação e avisa os outros servidores no tópico 'servers'."""
+    global coordinator
+    coordinator = SERVER_NAME
+    event = pb.CoordinatorAnnouncement(name=SERVER_NAME, timestamp=now(), clock=tick())
+    pub.send_multipart([b"servers", event.SerializeToString()])
+    print(f"eleito coordenador | relógio lógico: {clock}", flush=True)
+
+
+def start_election() -> None:
+    """Eleição (bully): vence o servidor de maior rank que estiver disponível."""
+    global coordinator
+
+    print("iniciando eleição", flush=True)
+    servers = list_servers()
+    if servers is None:
+        # Sem a lista não há como saber quem está disponível: tenta na próxima sincronização
+        coordinator = None
+        print("eleição adiada: referência indisponível", flush=True)
+        return
+
+    for server in servers:
+        if server.rank <= rank:
+            continue
+        request = pb.ServerRequest(
+            election=pb.ElectionRequest(name=SERVER_NAME, rank=rank))
+        result = call_peer(server.address, request)
+        if result is not None and result[0].election_reply.status == "OK":
+            # Um servidor de rank maior assume a eleição e vai anunciar o resultado
+            coordinator = None
+            print(f"'{server.name}' respondeu à eleição: aguardando anúncio", flush=True)
+            return
+
+    announce_coordinator()
+
+
+def sync_clock() -> None:
+    """Acerta o relógio físico pela hora do coordenador (Cristian)."""
+    global offset_ns
+
+    if coordinator == SERVER_NAME:
+        return
+    if coordinator is None:
+        start_election()
+        return
+
+    servers = list_servers()
+    address = next((s.address for s in servers or [] if s.name == coordinator), None)
+    result = call_peer(address, pb.ServerRequest(clock_request=pb.ClockRequest())) if address else None
+    if result is None:
+        start_election()
+        return
+
+    resp, sent_ns, received_ns = result
+    # Hora do coordenador + metade do tempo de ida e volta
+    coordinator_ns = resp.timestamp.ToNanoseconds() + (received_ns - sent_ns) // 2
+    offset_ns = coordinator_ns - received_ns
+    print(f"relógio sincronizado com '{coordinator}' | ajuste: {offset_ns / 1e6:+.3f} ms", flush=True)
+
+
 rank = request_rank()
-print(f"servidor '{SERVER_NAME}' com rank {rank}", flush=True)
+print(f"servidor '{SERVER_NAME}' com rank {rank} ({SERVER_ADDRESS})", flush=True)
 
 
 def handle_create_channel(name: str) -> pb.Response:
@@ -259,12 +367,12 @@ def handle(req: pb.Request) -> pb.Response:
     return resp
 
 
-received = 0
+def serve_client() -> None:
+    """Atende uma requisição de cliente recebida pelo broker."""
+    global received
 
-while True:
-    raw = rep.recv()
     req = pb.Request()
-    req.ParseFromString(raw)
+    req.ParseFromString(rep.recv())
     observe(req.clock)
     print(
         f"[{to_dt(req.timestamp)}] recebido: {req.WhichOneof('payload')} "
@@ -281,3 +389,66 @@ while True:
     received += 1
     if received % HEARTBEAT_EVERY == 0:
         send_heartbeat()
+    if received % SYNC_EVERY == 0:
+        sync_clock()
+
+
+def serve_peer() -> None:
+    """Atende uma requisição de outro servidor."""
+    global election_pending
+
+    req = pb.ServerRequest()
+    req.ParseFromString(peer_rep.recv())
+    observe(req.clock)
+    kind = req.WhichOneof("payload")
+    print(f"servidor: recebido '{kind}' | relógio lógico: {clock}", flush=True)
+
+    resp = pb.ServerResponse()
+    if kind == "clock_request":
+        resp.clock_reply.SetInParent()
+    elif kind == "election":
+        resp.election_reply.status = "OK"
+    resp.timestamp.CopyFrom(now())
+    resp.clock = tick()
+    peer_rep.send(resp.SerializeToString())
+
+    if kind == "election":
+        # Responde primeiro e só depois inicia a própria eleição, para o
+        # servidor que pediu não esperar por ela
+        election_pending = True
+
+
+def handle_announcement() -> None:
+    """Registra o coordenador anunciado no tópico 'servers'."""
+    global coordinator
+
+    _topic, payload = sub.recv_multipart()
+    event = pb.CoordinatorAnnouncement()
+    event.ParseFromString(payload)
+    observe(event.clock)
+    coordinator = event.name
+    print(f"coordenador: {coordinator} | relógio lógico: {clock}", flush=True)
+
+
+received = 0
+
+start_election()
+
+poller = zmq.Poller()
+poller.register(rep, zmq.POLLIN)
+poller.register(peer_rep, zmq.POLLIN)
+poller.register(sub, zmq.POLLIN)
+
+while True:
+    events = dict(poller.poll())
+
+    if events.get(rep) == zmq.POLLIN:
+        serve_client()
+    if events.get(peer_rep) == zmq.POLLIN:
+        serve_peer()
+    if events.get(sub) == zmq.POLLIN:
+        handle_announcement()
+
+    if election_pending:
+        election_pending = False
+        start_election()

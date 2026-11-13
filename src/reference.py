@@ -19,6 +19,8 @@ clock = 0
 
 # Rank atribuído a cada nome (mantido mesmo que o servidor saia da lista)
 ranks: dict[str, int] = {}
+# Endereço de cada servidor para comunicação entre servidores
+addresses: dict[str, str] = {}
 # Servidores disponíveis: nome -> instante (monotônico) do último sinal de vida
 last_seen: dict[str, float] = {}
 
@@ -36,16 +38,20 @@ def remove_expired() -> None:
         print(f"servidor '{name}' removido (sem heartbeat)", flush=True)
 
 
-def handle_rank(name: str) -> pb.ReferenceResponse:
+def handle_rank(name: str, address: str) -> pb.ReferenceResponse:
     if name not in ranks:
         ranks[name] = len(ranks) + 1
+    addresses[name] = address
     last_seen[name] = time.monotonic()
-    print(f"servidor '{name}' registrado com rank {ranks[name]}", flush=True)
+    print(f"servidor '{name}' registrado com rank {ranks[name]} ({address})", flush=True)
     return pb.ReferenceResponse(rank_reply=pb.RankReply(rank=ranks[name]))
 
 
 def handle_list() -> pb.ReferenceResponse:
-    servers = [pb.ServerInfo(name=n, rank=ranks[n]) for n in sorted(last_seen, key=ranks.get)]
+    servers = [
+        pb.ServerInfo(name=n, rank=ranks[n], address=addresses[n])
+        for n in sorted(last_seen, key=ranks.get)
+    ]
     return pb.ReferenceResponse(list_reply=pb.ServerListReply(servers=servers))
 
 
@@ -63,7 +69,7 @@ def handle(req: pb.ReferenceRequest) -> pb.ReferenceResponse:
     kind = req.WhichOneof("payload")
 
     if kind == "rank":
-        return handle_rank(req.rank.name)
+        return handle_rank(req.rank.name, req.rank.address)
     if kind == "list":
         return handle_list()
     if kind == "heartbeat":

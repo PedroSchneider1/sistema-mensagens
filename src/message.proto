@@ -127,6 +127,7 @@ message ReferenceResponse {
 
 message RankRequest {
   string name = 1;
+  string address = 2;   // endereço do socket de comunicação entre servidores
 }
 
 message RankReply {
@@ -138,6 +139,7 @@ message ServerListRequest {}
 message ServerInfo {
   string name = 1;
   int32 rank = 2;
+  string address = 3;
 }
 
 message ServerListReply {
@@ -150,4 +152,45 @@ message HeartbeatRequest {
 
 message HeartbeatReply {
   int32 status = 1;   // 200 = ok, 404 = servidor fora da lista (deve pedir o rank de novo)
+}
+
+// ---------- Comunicação entre servidores (REQ/REP) ----------
+
+message ServerRequest {
+  google.protobuf.Timestamp timestamp = 1;
+  int64 clock = 2;   // relógio lógico de quem envia
+  oneof payload {
+    ClockRequest clock_request = 3;
+    ElectionRequest election = 4;
+  }
+}
+
+message ServerResponse {
+  google.protobuf.Timestamp timestamp = 1;   // hora de quem responde (relógio físico)
+  int64 clock = 2;   // relógio lógico de quem envia
+  oneof payload {
+    ClockReply clock_reply = 3;
+    ElectionReply election_reply = 4;
+  }
+}
+
+// Pede a hora ao coordenador; a resposta traz a hora no timestamp do envelope
+message ClockRequest {}
+
+message ClockReply {}
+
+message ElectionRequest {
+  string name = 1;
+  int32 rank = 2;
+}
+
+message ElectionReply {
+  string status = 1;   // "OK"
+}
+
+// Publicado no tópico "servers" pelo servidor eleito coordenador (PUB/SUB)
+message CoordinatorAnnouncement {
+  string name = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  int64 clock = 3;   // relógio lógico de quem envia
 }

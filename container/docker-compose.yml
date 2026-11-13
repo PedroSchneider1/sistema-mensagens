@@ -1,3 +1,22 @@
+x-server: &server
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - .env
+  volumes:
+    - ../src/server.py:/app/main.py
+    - ../src/message_pb2.py:/app/message_pb2.py
+  depends_on:
+    broker:
+      condition: service_started
+    proxy:
+      condition: service_started
+    reference:
+      condition: service_started
+    postgres:
+      condition: service_healthy
+
 services:
   broker:
     build:
@@ -49,29 +68,26 @@ services:
       timeout: 5s
       retries: 10
 
-  server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: server
-    env_file:
-      - .env
+  server_1:
+    <<: *server
+    container_name: server_1
     environment:
       SERVER_NAME: server_1
-    volumes:
-      - ../src/server.py:/app/main.py
-      - ../src/message_pb2.py:/app/message_pb2.py
-    depends_on:
-      broker:
-        condition: service_started
-      proxy:
-        condition: service_started
-      reference:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    deploy:
-      replicas: 1
+      SERVER_ADDRESS: tcp://server_1:5560
+
+  server_2:
+    <<: *server
+    container_name: server_2
+    environment:
+      SERVER_NAME: server_2
+      SERVER_ADDRESS: tcp://server_2:5560
+
+  server_3:
+    <<: *server
+    container_name: server_3
+    environment:
+      SERVER_NAME: server_3
+      SERVER_ADDRESS: tcp://server_3:5560
 
   client_pedro:
     build:
@@ -85,7 +101,9 @@ services:
       - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
       - broker
-      - server
+      - server_1
+      - server_2
+      - server_3
       - proxy
     deploy:
       replicas: 1
@@ -102,7 +120,9 @@ services:
       - ../src/message_pb2.py:/app/message_pb2.py
     depends_on:
       - broker
-      - server
+      - server_1
+      - server_2
+      - server_3
       - proxy
     deploy:
       replicas: 1

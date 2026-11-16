@@ -4,50 +4,14 @@ import time
 from datetime import timezone
 
 import zmq
-import psycopg
-from psycopg.types.json import Jsonb
-from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 import message_pb2 as pb
-
-DSN = (
-    f"host={os.environ.get('POSTGRES_HOST', 'postgres')} "
-    f"port=5432 "
-    f"dbname={os.environ['POSTGRES_DB']} "
-    f"user={os.environ['POSTGRES_USER']} "
-    f"password={os.environ['POSTGRES_PASSWORD']}"
-)
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS messages (
-    id          BIGSERIAL PRIMARY KEY,
-    direction   TEXT NOT NULL CHECK (direction IN ('in', 'out')),
-    kind        TEXT NOT NULL,
-    payload     JSONB NOT NULL,
-    message_ts  TIMESTAMPTZ,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS clock BIGINT;
-
-CREATE TABLE IF NOT EXISTS channels (
-    name        TEXT PRIMARY KEY,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS publications (
-    id          BIGSERIAL PRIMARY KEY,
-    channel     TEXT NOT NULL REFERENCES channels(name),
-    sender      TEXT NOT NULL,
-    body        TEXT NOT NULL,
-    sent_at     TIMESTAMPTZ NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-"""
+from store import Store, APPLIED, GAP
 
 USERS = {"pedro_client", "gabriel_client"}
 
 SERVER_NAME = os.environ.get("SERVER_NAME", socket.gethostname())
+DB_PATH = os.environ.get("DB_PATH", f"/data/{SERVER_NAME}.db")
 PEER_PORT = int(os.environ.get("PEER_PORT", "5560"))
 # Endereço informado à referência para os outros servidores nos contactarem
 SERVER_ADDRESS = os.environ.get("SERVER_ADDRESS", f"tcp://{SERVER_NAME}:{PEER_PORT}")
@@ -55,6 +19,9 @@ HEARTBEAT_EVERY = 10          # mensagens de clientes entre heartbeats
 SYNC_EVERY = 15               # mensagens de clientes entre sincronizações do relógio
 REFERENCE_TIMEOUT_MS = 2000
 PEER_TIMEOUT_MS = 3000
+SESSION_WAIT_MS = 3000        # quanto esperar a replicação de um vetor de cliente antes do 503
+SYNC_PAGE = 500               # máximo de entradas (de cada tipo) por resposta de sincronização
+CATCH_UP_COOLDOWN = 1.0       # segundos mínimos entre reparos disparados por lacunas
 
 # Relógio lógico do processo
 clock = 0
@@ -68,18 +35,13 @@ coordinator: str | None = None
 # Um servidor de rank menor pediu eleição: devemos iniciar a nossa
 election_pending = False
 
-
-def connect_db():
-    while True:
-        try:
-            return psycopg.connect(DSN, autocommit=True)
-        except psycopg.OperationalError as e:
-            print(f"aguardando postgres: {e}", flush=True)
-            time.sleep(2)
+# Instante (monotônico) do último reparo, para não repeti-lo a cada lacuna
+last_catch_up = 0.0
 
 
-db = connect_db()
-db.execute(SCHEMA)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+store = Store(DB_PATH, SERVER_NAME)
+print(f"armazenamento em {DB_PATH} | vetor: {store.vector}", flush=True)
 
 
 def now() -> Timestamp:
@@ -105,16 +67,12 @@ def to_dt(ts: Timestamp):
     return ts.ToDatetime().replace(tzinfo=timezone.utc)
 
 
-def save_message(direction: str, msg) -> None:
-    kind = msg.WhichOneof("payload")
-    payload = MessageToDict(getattr(msg, kind)) if kind else {}
-    ts = to_dt(msg.timestamp) if msg.HasField("timestamp") else None
-
-    db.execute(
-        "INSERT INTO messages (direction, kind, payload, message_ts, clock) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (direction, kind or "empty", Jsonb(payload), ts, msg.clock),
-    )
+def log_message(direction: str, msg) -> None:
+    """Registra a mensagem trocada com o cliente (Request "in" ou Response "out")."""
+    kind = msg.WhichOneof("payload") or "empty"
+    message_ts = msg.timestamp if msg.HasField("timestamp") else None
+    entry = store.append_log(direction, kind, msg.SerializeToString(), message_ts, tick())
+    pub.send_multipart([b"eventlog", entry.SerializeToString()])
 
 
 context = zmq.Context()
@@ -131,10 +89,12 @@ pub.connect("tcp://proxy:5557")
 peer_rep = context.socket(zmq.REP)
 peer_rep.bind(f"tcp://*:{PEER_PORT}")
 
-# Anúncios do coordenador eleito (via proxy XPUB)
+# Anúncios do coordenador e replicação dos outros servidores (via proxy XPUB)
 sub = context.socket(zmq.SUB)
 sub.connect("tcp://proxy:5558")
 sub.setsockopt_string(zmq.SUBSCRIBE, "servers")
+sub.setsockopt_string(zmq.SUBSCRIBE, "replica")
+sub.setsockopt_string(zmq.SUBSCRIBE, "eventlog")
 
 
 def connect_reference() -> zmq.Socket:
@@ -214,8 +174,21 @@ def call_peer(address: str, request: pb.ServerRequest) -> tuple[pb.ServerRespons
         sent_ns = time.time_ns()
         sock.send(request.SerializeToString())
 
-        if not sock.poll(PEER_TIMEOUT_MS):
-            return None
+        # Enquanto espera, atende os pedidos dos outros servidores: se dois servidores
+        # chamam um ao outro ao mesmo tempo, nenhum deles fica bloqueado até o timeout
+        waiting = zmq.Poller()
+        waiting.register(sock, zmq.POLLIN)
+        waiting.register(peer_rep, zmq.POLLIN)
+        deadline = time.monotonic() + PEER_TIMEOUT_MS / 1000
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            events = dict(waiting.poll(int(remaining * 1000) + 1))
+            if events.get(peer_rep) == zmq.POLLIN:
+                serve_peer()
+            if events.get(sock) == zmq.POLLIN:
+                break
 
         resp = pb.ServerResponse()
         resp.ParseFromString(sock.recv())
@@ -224,6 +197,68 @@ def call_peer(address: str, request: pb.ServerRequest) -> tuple[pb.ServerRespons
         return resp, sent_ns, received_ns
     finally:
         sock.close()
+
+
+def apply_sync(reply: pb.SyncReply) -> int:
+    """Aplica as entradas recebidas de um par. Retorna quantas eram novas.
+
+    Aceita também as entradas da nossa própria origem: é assim que recuperamos
+    o nosso seq depois de reiniciar com o volume vazio.
+    """
+    applied = 0
+    for entry in reply.entries:
+        observe(entry.clock)
+        applied += store.apply(entry) == APPLIED
+    for entry in reply.log_entries:
+        observe(entry.clock)
+        applied += store.apply_log(entry) == APPLIED
+    return applied
+
+
+def pull_from(server: pb.ServerInfo) -> int:
+    """Pede a um par tudo o que falta, página por página. Retorna quantas entradas aplicou."""
+    total = 0
+    while True:
+        request = pb.ServerRequest(
+            sync=pb.SyncRequest(vector=store.vector, log_vector=store.log_vector))
+        result = call_peer(server.address, request)
+        if result is None:
+            print(f"reparo: '{server.name}' não respondeu", flush=True)
+            return total
+
+        reply = result[0].sync_reply
+        applied = apply_sync(reply)
+        total += applied
+        full = SYNC_PAGE in (len(reply.entries), len(reply.log_entries))
+        if applied == 0 or not full:
+            return total
+
+
+def catch_up() -> None:
+    """Reparo: busca nos outros servidores o que perdemos (reinício ou mensagem perdida)."""
+    global last_catch_up
+
+    last_catch_up = time.monotonic()
+    servers = list_servers()
+    if servers is None:
+        print("reparo adiado: referência indisponível", flush=True)
+        return
+
+    for server in servers:
+        if server.name != SERVER_NAME:
+            applied = pull_from(server)
+            if applied:
+                print(
+                    f"reparo: {applied} entradas de '{server.name}' "
+                    f"| vetor: {store.vector}",
+                    flush=True,
+                )
+
+
+def catch_up_on_gap() -> None:
+    """Uma lacuna indica mensagem perdida; repara, mas no máximo uma vez por segundo."""
+    if time.monotonic() - last_catch_up >= CATCH_UP_COOLDOWN:
+        catch_up()
 
 
 def announce_coordinator() -> None:
@@ -290,38 +325,49 @@ rank = request_rank()
 print(f"servidor '{SERVER_NAME}' com rank {rank} ({SERVER_ADDRESS})", flush=True)
 
 
+def replicate(entry: pb.ReplicaEntry) -> None:
+    """Envia a entrada aos outros servidores (tópico 'replica')."""
+    pub.send_multipart([b"replica", entry.SerializeToString()])
+
+
 def handle_create_channel(name: str) -> pb.Response:
-    row = db.execute(
-        "INSERT INTO channels (name) VALUES (%s) ON CONFLICT DO NOTHING RETURNING name",
-        (name,),
-    ).fetchone()
-    status = 200 if row else 409
+    if store.channel_exists(name):
+        status = 409
+    else:
+        replicate(store.append_channel(name, tick(), now()))
+        status = 200
     return pb.Response(
         create_channel_reply=pb.CreateChannelReply(status=status, timestamp=now())
     )
 
 
 def handle_list_channels() -> pb.Response:
-    rows = db.execute("SELECT name FROM channels ORDER BY name").fetchall()
     return pb.Response(
         list_channels_reply=pb.ListChannelsReply(
-            channels=[r[0] for r in rows], timestamp=now()
+            channels=store.channels(), timestamp=now()
+        )
+    )
+
+
+def handle_get_history(channel: str) -> pb.Response:
+    if not store.channel_exists(channel):
+        return pb.Response(get_history_reply=pb.GetHistoryReply(status=404, timestamp=now()))
+
+    return pb.Response(
+        get_history_reply=pb.GetHistoryReply(
+            status=200, messages=store.history(channel), timestamp=now()
         )
     )
 
 
 def handle_publish(p: pb.PublishRequest) -> pb.Response:
-    exists = db.execute("SELECT 1 FROM channels WHERE name = %s", (p.channel,)).fetchone()
-    if exists is None:
+    if not store.channel_exists(p.channel):
         return pb.Response(publish_reply=pb.PublishReply(status=404, timestamp=now()))
 
     sent_at = now()
 
     # Persiste a publicação
-    db.execute(
-        "INSERT INTO publications (channel, sender, body, sent_at) VALUES (%s, %s, %s, %s)",
-        (p.channel, p.user, p.message, to_dt(sent_at)),
-    )
+    replicate(store.append_publication(p.channel, p.user, p.message, tick(), sent_at))
 
     # Publica: primeiro frame é o tópico (nome do canal), segundo é o protobuf
     event = pb.Publication(
@@ -333,7 +379,7 @@ def handle_publish(p: pb.PublishRequest) -> pb.Response:
     return pb.Response(publish_reply=pb.PublishReply(status=200, timestamp=now()))
 
 
-def handle(req: pb.Request) -> pb.Response:
+def dispatch(req: pb.Request) -> pb.Response:
     kind = req.WhichOneof("payload")
 
     if kind == "conn":
@@ -353,6 +399,9 @@ def handle(req: pb.Request) -> pb.Response:
     elif kind == "list_channels":
         resp = handle_list_channels()
 
+    elif kind == "get_history":
+        resp = handle_get_history(req.get_history.channel)
+
     elif kind == "publish":
         resp = handle_publish(req.publish)
 
@@ -360,6 +409,48 @@ def handle(req: pb.Request) -> pb.Response:
         print(f"Mensagem desconhecida: {kind}", flush=True)
         resp = pb.Response(
             error=pb.ErrorReply(error=f"unknown command: {kind}", timestamp=now())
+        )
+
+    return resp
+
+
+def wait_for_vector(vector) -> bool:
+    """Espera esta réplica aplicar tudo o que o cliente já viu (leu ou escreveu).
+
+    Enquanto espera, continua tratando as publicações dos outros servidores e as
+    requisições deles. Retorna False se o vetor não chegou a tempo.
+    """
+    if store.covers(vector):
+        return True
+
+    print(f"aguardando réplica: cliente viu {dict(vector)}, temos {store.vector}", flush=True)
+    waiting = zmq.Poller()
+    waiting.register(sub, zmq.POLLIN)
+    waiting.register(peer_rep, zmq.POLLIN)
+
+    deadline = time.monotonic() + SESSION_WAIT_MS / 1000
+    while not store.covers(vector):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        events = dict(waiting.poll(int(remaining * 1000) + 1))
+        if events.get(sub) == zmq.POLLIN:
+            serve_sub()
+        if events.get(peer_rep) == zmq.POLLIN:
+            serve_peer()
+    return True
+
+
+def handle(req: pb.Request) -> pb.Response:
+    """Garantias de sessão: só atende depois de aplicar o vetor do cliente."""
+    if wait_for_vector(req.vector):
+        resp = dispatch(req)
+        # Vetor aplicado, já com a escrita desta requisição: o cliente o incorpora ao seu
+        resp.vector.update(store.vector)
+    else:
+        print("réplica atrasada: respondendo 503", flush=True)
+        resp = pb.Response(
+            error=pb.ErrorReply(error="replica behind", status=503, timestamp=now())
         )
 
     resp.timestamp.CopyFrom(now())
@@ -380,15 +471,17 @@ def serve_client() -> None:
         flush=True,
     )
 
-    save_message("in", req)
+    log_message("in", req)
     resp = handle(req)
-    save_message("out", resp)
+    log_message("out", resp)
 
     rep.send(resp.SerializeToString())
 
     received += 1
     if received % HEARTBEAT_EVERY == 0:
         send_heartbeat()
+        # Também repara periodicamente: uma última entrada perdida não gera lacuna
+        catch_up()
     if received % SYNC_EVERY == 0:
         sync_clock()
 
@@ -408,6 +501,12 @@ def serve_peer() -> None:
         resp.clock_reply.SetInParent()
     elif kind == "election":
         resp.election_reply.status = "OK"
+    elif kind == "sync":
+        # Cada lista sai truncada na página; como as entradas vêm por origem e em
+        # ordem de seq, o que for enviado continua sem lacunas para quem aplica
+        resp.sync_reply.entries.extend(store.entries_since(req.sync.vector)[:SYNC_PAGE])
+        resp.sync_reply.log_entries.extend(
+            store.log_entries_since(req.sync.log_vector)[:SYNC_PAGE])
     resp.timestamp.CopyFrom(now())
     resp.clock = tick()
     peer_rep.send(resp.SerializeToString())
@@ -418,11 +517,10 @@ def serve_peer() -> None:
         election_pending = True
 
 
-def handle_announcement() -> None:
+def handle_announcement(payload: bytes) -> None:
     """Registra o coordenador anunciado no tópico 'servers'."""
     global coordinator
 
-    _topic, payload = sub.recv_multipart()
     event = pb.CoordinatorAnnouncement()
     event.ParseFromString(payload)
     observe(event.clock)
@@ -430,8 +528,62 @@ def handle_announcement() -> None:
     print(f"coordenador: {coordinator} | relógio lógico: {clock}", flush=True)
 
 
+def apply_replica(payload: bytes) -> None:
+    """Aplica uma entrada de estado publicada por outro servidor (tópico 'replica')."""
+    entry = pb.ReplicaEntry()
+    entry.ParseFromString(payload)
+    if entry.origin == SERVER_NAME:
+        return
+    observe(entry.clock)
+
+    result = store.apply(entry)
+    if result == APPLIED:
+        print(
+            f"replicado: {entry.WhichOneof('payload')} {entry.origin}#{entry.seq} "
+            f"| vetor: {store.vector}",
+            flush=True,
+        )
+    elif result == GAP:
+        print(
+            f"lacuna em '{entry.origin}': esperado #{store.vector.get(entry.origin, 0) + 1}, "
+            f"recebido #{entry.seq}",
+            flush=True,
+        )
+        catch_up_on_gap()
+
+
+def apply_log(payload: bytes) -> None:
+    """Aplica um registro de mensagem de outro servidor (tópico 'eventlog')."""
+    entry = pb.LogEntry()
+    entry.ParseFromString(payload)
+    if entry.origin == SERVER_NAME:
+        return
+    observe(entry.clock)
+
+    if store.apply_log(entry) == GAP:
+        print(
+            f"lacuna no log de '{entry.origin}': "
+            f"esperado #{store.log_vector.get(entry.origin, 0) + 1}, recebido #{entry.seq}",
+            flush=True,
+        )
+        catch_up_on_gap()
+
+
+def serve_sub() -> None:
+    """Trata uma mensagem recebida pelo SUB, conforme o tópico."""
+    topic, payload = sub.recv_multipart()
+    if topic == b"servers":
+        handle_announcement(payload)
+    elif topic == b"replica":
+        apply_replica(payload)
+    elif topic == b"eventlog":
+        apply_log(payload)
+
+
 received = 0
 
+# Ao iniciar (ou reiniciar), busca o que os outros servidores já têm antes de atender
+catch_up()
 start_election()
 
 poller = zmq.Poller()
@@ -447,7 +599,7 @@ while True:
     if events.get(peer_rep) == zmq.POLLIN:
         serve_peer()
     if events.get(sub) == zmq.POLLIN:
-        handle_announcement()
+        serve_sub()
 
     if election_pending:
         election_pending = False

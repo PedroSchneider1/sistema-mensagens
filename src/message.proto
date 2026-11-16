@@ -15,7 +15,11 @@ message Request {
     CreateChannelRequest create_channel = 4;
     ListChannelsRequest list_channels = 5;
     PublishRequest publish = 6;
+    GetHistoryRequest get_history = 8;
   }
+  // Consistência centrada no cliente: tudo que o cliente já leu ou escreveu
+  // (maior seq de cada servidor de origem). O servidor só responde depois de aplicá-lo.
+  map<string, int64> vector = 9;
 }
 
 message Response {
@@ -28,7 +32,10 @@ message Response {
     ErrorReply error = 5;
     ListChannelsReply list_channels_reply = 6;
     PublishReply publish_reply = 7;
+    GetHistoryReply get_history_reply = 9;
   }
+  // Vetor aplicado pelo servidor ao responder; o cliente o incorpora ao seu
+  map<string, int64> vector = 10;
 }
 
 // ---------- Conexão ----------
@@ -98,9 +105,32 @@ message Publication {
   int64 clock = 5;   // relógio lógico de quem envia
 }
 
+// ---------- Histórico ----------
+
+message GetHistoryRequest {
+  string channel = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message HistoryEntry {
+  string sender = 1;
+  string message = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  int64 clock = 4;    // relógio lógico do servidor que recebeu a publicação
+  string origin = 5;  // servidor que recebeu a publicação
+  int64 seq = 6;
+}
+
+message GetHistoryReply {
+  int32 status = 1;   // 200 = ok, 404 = canal não existe
+  repeated HistoryEntry messages = 2;   // ordenadas por (clock, origin, seq)
+  google.protobuf.Timestamp timestamp = 3;
+}
+
 message ErrorReply {
   string error = 1;
   google.protobuf.Timestamp timestamp = 2;
+  int32 status = 3;   // 503 = réplica ainda não aplicou o vetor do cliente (tentar de novo)
 }
 
 // ---------- Serviço de referência (servidor <-> referência, REQ/REP) ----------
@@ -162,6 +192,7 @@ message ServerRequest {
   oneof payload {
     ClockRequest clock_request = 3;
     ElectionRequest election = 4;
+    SyncRequest sync = 5;
   }
 }
 
@@ -171,6 +202,7 @@ message ServerResponse {
   oneof payload {
     ClockReply clock_reply = 3;
     ElectionReply election_reply = 4;
+    SyncReply sync_reply = 5;
   }
 }
 
@@ -193,4 +225,55 @@ message CoordinatorAnnouncement {
   string name = 1;
   google.protobuf.Timestamp timestamp = 2;
   int64 clock = 3;   // relógio lógico de quem envia
+}
+
+// ---------- Replicação (PUB/SUB e REQ/REP entre servidores) ----------
+
+// Alteração de estado, publicada no tópico "replica". O id é (origin, seq): seq é um
+// contador por servidor de origem, sem lacunas, o que torna a aplicação idempotente.
+message ReplicaEntry {
+  string origin = 1;
+  int64 seq = 2;
+  int64 clock = 3;   // relógio lógico do servidor de origem
+  google.protobuf.Timestamp timestamp = 4;
+  oneof payload {
+    ChannelCreated channel = 5;
+    MessagePublished publication = 6;
+  }
+}
+
+message ChannelCreated {
+  string name = 1;
+}
+
+message MessagePublished {
+  string channel = 1;
+  string sender = 2;
+  string message = 3;
+}
+
+// Registro das mensagens trocadas com os clientes, publicado no tópico "eventlog".
+// Tem sequência própria por origem e replica só de forma eventual (sem espera).
+message LogEntry {
+  string origin = 1;      // servidor que trocou a mensagem com o cliente
+  int64 seq = 2;          // contador do log por origem, sem lacunas
+  string direction = 3;   // "in" = Request recebido do cliente, "out" = Response enviado a ele
+  string kind = 4;        // campo do oneof "payload" usado (login, publish, ...), só para consulta
+  // Mensagem original, serializada em protobuf (não é texto legível). Para inspecionar:
+  //   direction == "in"  -> pb.Request.FromString(payload)
+  //   direction == "out" -> pb.Response.FromString(payload)
+  bytes payload = 5;
+  google.protobuf.Timestamp message_ts = 6;   // timestamp que vinha na mensagem (se houver)
+  int64 clock = 7;        // relógio lógico do servidor de origem ao registrar (o do cliente está no payload)
+}
+
+// Pede o que falta: entradas com seq maior que a informada para cada origem
+message SyncRequest {
+  map<string, int64> vector = 1;       // estado: maior seq aplicado de cada origem
+  map<string, int64> log_vector = 2;   // log de mensagens: idem
+}
+
+message SyncReply {
+  repeated ReplicaEntry entries = 1;
+  repeated LogEntry log_entries = 2;
 }

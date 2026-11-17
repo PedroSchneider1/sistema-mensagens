@@ -1,0 +1,25 @@
+syntax = "proto3";
+package message;
+option java_package = "sistema.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+message Request {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof payload { ConnRequest conn = 2; LoginRequest login = 3; CreateChannelRequest create_channel = 4; ListChannelsRequest list_channels = 5; PublishRequest publish = 6; }
+}
+message Response {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof payload { ConnReply conn_reply = 2; LoginReply login_reply = 3; CreateChannelReply create_channel_reply = 4; ErrorReply error = 5; ListChannelsReply list_channels_reply = 6; PublishReply publish_reply = 7; }
+}
+message ConnRequest { string message = 1; google.protobuf.Timestamp timestamp = 2; }
+message ConnReply { string message = 1; google.protobuf.Timestamp timestamp = 2; }
+message LoginRequest { string user = 1; google.protobuf.Timestamp timestamp = 2; }
+message LoginReply { int32 status = 1; google.protobuf.Timestamp timestamp = 2; }
+message CreateChannelRequest { string name = 1; google.protobuf.Timestamp timestamp = 2; }
+message CreateChannelReply { int32 status = 1; google.protobuf.Timestamp timestamp = 2; }
+message ListChannelsRequest { google.protobuf.Timestamp timestamp = 1; }
+message ListChannelsReply { repeated string channels = 1; google.protobuf.Timestamp timestamp = 2; }
+message PublishRequest { string user = 1; string channel = 2; string message = 3; google.protobuf.Timestamp timestamp = 4; }
+message PublishReply { int32 status = 1; google.protobuf.Timestamp timestamp = 2; }
+message Publication { string channel = 1; string sender = 2; string message = 3; google.protobuf.Timestamp timestamp = 4; }
+message ErrorReply { string error = 1; google.protobuf.Timestamp timestamp = 2; }

@@ -172,6 +172,22 @@ final class Client {
                     channel, previous, entries.size());
         }
         historySizes.put(channel, Math.max(previous, entries.size()));
+        boolean ordered = true;
+        for (int i = 1; i < entries.size() && ordered; i++) {
+            HistoryEntry a = entries.get(i - 1);
+            HistoryEntry b = entries.get(i);
+            int cmp = Long.compare(a.getClock(), b.getClock());
+            if (cmp == 0) {
+                cmp = a.getOrigin().compareTo(b.getOrigin());
+            }
+            if (cmp == 0) {
+                cmp = Long.compare(a.getSeq(), b.getSeq());
+            }
+            ordered = cmp <= 0;
+        }
+        if (!ordered) {
+            System.out.printf("AVISO: histórico de '%s' fora de ordem%n", channel);
+        }
         long ownMessages = entries.stream().filter(entry -> entry.getSender().equals(username))
                 .count();
         int expectedOwnMessages = publishedCounts.getOrDefault(channel, 0);

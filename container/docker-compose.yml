@@ -13,23 +13,21 @@ x-server: &server
 services:
   broker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: container/Dockerfile.java
     container_name: broker
-    volumes:
-      - ../src/broker.py:/app/main.py
+    command: ["broker"]
     ports:
       - 5555:5555
       - 5556:5556
 
   proxy:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: container/Dockerfile.java
     container_name: proxy
     restart: unless-stopped
-    volumes:
-      - ../src/proxy.py:/app/main.py
+    command: ["proxy"]
 
   reference:
     build:

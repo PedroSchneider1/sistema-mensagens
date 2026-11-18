@@ -106,7 +106,7 @@ final class Server {
                     }
                 }
                 if (poller.pollin(1)) {
-                    electionPending = servePeerRequest(peerRequests, store);
+                    electionPending |= servePeerRequest(peerRequests, store);
                 }
                 if (poller.pollin(2)) {
                     serveSubscription(context, reference, peerRequests, subscriptions,
@@ -186,10 +186,10 @@ final class Server {
                 continue;
             }
             if (poller.pollin(0)) {
-                serveSubscription(null, reference, peerRequests, subscriptions, publications, store);
+                serveSubscription(context, reference, peerRequests, subscriptions, publications, store);
             }
             if (poller.pollin(1)) {
-                electionPending = servePeerRequest(peerRequests, store);
+                electionPending |= servePeerRequest(peerRequests, store);
             }
         }
         return true;
@@ -528,7 +528,7 @@ final class Server {
                     continue;
                 }
                 if (peerPoller.pollin(1)) {
-                    electionPending = servePeerRequest(peerRequests, store);
+                    electionPending |= servePeerRequest(peerRequests, store);
                 }
                 if (peerPoller.pollin(0)) {
                     ServerResponse response = ServerResponse.parseFrom(peer.recv(0));
@@ -577,14 +577,6 @@ final class Server {
         response.setTimestamp(TimeUtil.now()).setClock(TimeUtil.incrementLogicalClock());
         peerRequests.send(response.build().toByteArray(), 0);
         return request.hasElection();
-    }
-
-    private static void handleAnnouncement(byte[] payload) throws Exception {
-        CoordinatorAnnouncement announcement = CoordinatorAnnouncement.parseFrom(payload);
-        TimeUtil.observeLogicalClock(announcement.getClock());
-        coordinator = announcement.getName();
-        System.out.printf("coordenador: %s | relógio lógico: %d%n",
-                coordinator, TimeUtil.currentLogicalClock());
     }
 
     private record PeerCallResult(ServerResponse response, Instant sentAt, Instant receivedAt) {}

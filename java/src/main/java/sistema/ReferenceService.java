@@ -14,7 +14,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Coordinator that assigns ranks, tracks active servers, and provides reference time. */
+/** Service that assigns ranks and tracks active servers through heartbeats. */
 final class ReferenceService {
     private static final long HEARTBEAT_TIMEOUT_SECONDS = 30;
     private static final Map<String, Integer> RANKS = new LinkedHashMap<>();

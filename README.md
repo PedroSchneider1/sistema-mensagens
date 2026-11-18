@@ -1,6 +1,6 @@
 # Sistema de troca de mensagens
 
-Protótipo de um sistema de troca de mensagens entre bots. Clientes, servidores e o serviço de referência são implementados em Java 17; o broker e o proxy continuam em Python. ZeroMQ faz a comunicação e Protocol Buffers define as mensagens em `java/src/main/proto/message.proto` (compatível com `src/message.proto`).
+Protótipo de um sistema de troca de mensagens entre bots. Broker, proxy, serviço de referência, servidores e clientes são implementados em Java 17. ZeroMQ faz a comunicação e Protocol Buffers define as mensagens em `java/src/main/proto/message.proto`, compatível com `src/message.proto` (contrato compartilhado com a versão Python, na branch `feat/python-version`).
 
 ## Executar
 
@@ -28,10 +28,10 @@ Pub/Sub pode perder mensagens enquanto um servidor está indisponível. Por isso
 
 Como a replicação é assíncrona, o cliente mantém um vetor de versões por sessão. Envia esse vetor em cada requisição e combina com o vetor devolvido pelo servidor. Antes de responder, o servidor espera até três segundos para ter aplicado o estado exigido pelo vetor. Se continuar atrasado, responde com status 503 e o cliente repete a requisição. Esse mecanismo preserva leituras monotônicas, escritas monotônicas, leitura do que foi escrito e escritas que seguem leituras, conforme a implementação Python.
 
-Os servidores também mantêm relógios lógicos, elegem coordenador pelo algoritmo bully e sincronizam o relógio físico pelo algoritmo de Berkeley. O serviço de referência atribui ranks, lista servidores ativos e acompanha heartbeats.
+Os servidores também mantêm relógios lógicos, elegem coordenador pelo algoritmo bully e sincronizam o relógio físico com o do coordenador (algoritmo de Cristian, compensando metade do tempo de ida e volta). O serviço de referência atribui ranks, lista servidores ativos e acompanha heartbeats.
 
 ## Componentes
 
-- `java/`: cliente, servidor, serviço e cliente de referência, armazenamento SQLite e entrada `Main`; Maven gera as classes Protobuf.
-- `src/broker.py` e `src/proxy.py`: encaminhamento Req-Rep e proxy Pub-Sub em Python.
+- `java/`: broker, proxy, cliente, servidor, serviço e cliente de referência, armazenamento SQLite e entrada `Main` (`broker`, `proxy`, `reference`, `server` ou `client`); Maven gera as classes Protobuf.
+- `src/message.proto`: definição das mensagens, compartilhada com a versão Python.
 - `container/docker-compose.yml`: configuração para executar o sistema.

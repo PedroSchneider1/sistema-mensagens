@@ -36,6 +36,7 @@ final class Database {
                     + "CHECK (direction IN ('in','out')), kind TEXT NOT NULL, "
                     + "payload BYTEA NOT NULL, message_ts TIMESTAMPTZ, "
                     + "created_at TIMESTAMPTZ NOT NULL DEFAULT now())");
+            statement.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS clock BIGINT");
             statement.execute("CREATE TABLE IF NOT EXISTS login_events ("
                     + "id BIGSERIAL PRIMARY KEY, username TEXT NOT NULL, "
                     + "logged_at TIMESTAMPTZ NOT NULL)");
@@ -49,13 +50,14 @@ final class Database {
     }
 
     static void saveMessage(Connection connection, String direction, String kind,
-                            byte[] payload, Timestamp timestamp) throws SQLException {
-        String sql = "INSERT INTO messages(direction,kind,payload,message_ts) VALUES(?,?,?,?)";
+                            byte[] payload, Timestamp timestamp, long clock) throws SQLException {
+        String sql = "INSERT INTO messages(direction,kind,payload,message_ts,clock) VALUES(?,?,?,?,?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, direction);
             statement.setString(2, kind);
             statement.setBytes(3, payload);
             statement.setTimestamp(4, java.sql.Timestamp.from(TimeUtil.toInstant(timestamp)));
+            statement.setLong(5, clock);
             statement.executeUpdate();
         }
     }

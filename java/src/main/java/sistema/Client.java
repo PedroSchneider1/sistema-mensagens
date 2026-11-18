@@ -130,8 +130,13 @@ final class Client {
 
     private static Response call(ZMQ.Socket requests, Request request) throws Exception {
         Request stamped = request.toBuilder().setTimestamp(TimeUtil.now()).build();
+        stamped = stamped.toBuilder()
+                .setClock(TimeUtil.incrementLogicalClock())
+                .build();
         requests.send(stamped.toByteArray(), 0);
-        return Response.parseFrom(requests.recv(0));
+        Response response = Response.parseFrom(requests.recv(0));
+        TimeUtil.observeLogicalClock(response.getClock());
+        return response;
     }
 
     private static List<String> listChannels(ZMQ.Socket requests) throws Exception {
@@ -168,12 +173,14 @@ final class Client {
     private static void receivePublication(ZMQ.Socket subscriptions) throws Exception {
         String topic = subscriptions.recvStr(0);
         Publication publication = Publication.parseFrom(subscriptions.recv(0));
+        TimeUtil.observeLogicalClock(publication.getClock());
         if (!publication.getChannel().equals(topic)) {
             return;
         }
 
-        System.out.printf("[%s] %s: %s | enviado: %s | recebido: %s%n",
+        System.out.printf("[%s] %s: %s | enviado: %s | recebido: %s | relógio lógico: %d -> %d%n",
                 topic, publication.getSender(), publication.getMessage(),
-                TimeUtil.format(publication.getTimestamp()), TimeUtil.format(java.time.Instant.now()));
+                TimeUtil.format(publication.getTimestamp()), TimeUtil.format(java.time.Instant.now()),
+                publication.getClock(), TimeUtil.currentLogicalClock());
     }
 }

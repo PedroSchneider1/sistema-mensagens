@@ -19,6 +19,13 @@ services:
     volumes:
       - ../src/proxy.py:/app/main.py
 
+  reference:
+    build:
+      context: ..
+      dockerfile: container/Dockerfile.java
+    container_name: reference
+    command: ["reference"]
+
   postgres:
     image: postgres:17-alpine
     container_name: postgres
@@ -43,6 +50,7 @@ services:
       dockerfile: container/Dockerfile.java
     container_name: server
     environment:
+      SERVER_NAME: server_1
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-messaging}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messaging}
@@ -52,6 +60,8 @@ services:
       broker:
         condition: service_started
       proxy:
+        condition: service_started
+      reference:
         condition: service_started
       postgres:
         condition: service_healthy

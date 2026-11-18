@@ -12,6 +12,7 @@ public final class Main {
         switch (args[0]) {
             case "server" -> Server.run();
             case "client" -> Client.run();
+            case "reference" -> ReferenceService.run();
             default -> throw new IllegalArgumentException("modo desconhecido: " + args[0]);
         }
     }

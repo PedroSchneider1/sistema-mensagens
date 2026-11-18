@@ -31,27 +31,59 @@ final class Server {
         try (Connection database = Database.connect(); ZContext context = new ZContext()) {
             Database.initializeSchema(database);
 
-            ZMQ.Socket replies = context.createSocket(ZMQ.REP);
-            replies.connect("tcp://broker:5556");
-            ZMQ.Socket publications = context.createSocket(ZMQ.PUB);
-            publications.connect("tcp://proxy:5557");
+            String serverName = System.getenv().getOrDefault("SERVER_NAME", "server");
+            try (ReferenceClient reference = new ReferenceClient(context)) {
+                int rank = reference.register(serverName);
+                System.out.printf("servidor '%s' registrado com rank %d%n", serverName, rank);
+                for (var server : reference.listServers()) {
+                    System.out.printf("servidor disponível: %s (rank %d)%n",
+                            server.getName(), server.getRank());
+                }
 
-            while (!Thread.currentThread().isInterrupted()) {
-                byte[] rawRequest = replies.recv(0);
-                Request request = Request.parseFrom(rawRequest);
-                var requestTimestamp = request.hasTimestamp() ? request.getTimestamp() : TimeUtil.now();
-                System.out.printf("[%s] recebido: %s%n", TimeUtil.format(requestTimestamp),
-                        request.getPayloadCase());
+                ZMQ.Socket replies = context.createSocket(ZMQ.REP);
+                replies.connect("tcp://broker:5556");
+                ZMQ.Socket publications = context.createSocket(ZMQ.PUB);
+                publications.connect("tcp://proxy:5557");
+                int receivedRequests = 0;
 
-                Database.saveMessage(database, "in", request.getPayloadCase()
-                        .name().toLowerCase(Locale.ROOT), rawRequest, requestTimestamp);
+                while (!Thread.currentThread().isInterrupted()) {
+                    byte[] rawRequest = replies.recv(0);
+                    Request request = Request.parseFrom(rawRequest);
+                    TimeUtil.observeLogicalClock(request.getClock());
+                    var requestTimestamp = request.hasTimestamp() ? request.getTimestamp() : TimeUtil.now();
+                    System.out.printf("[%s] recebido: %s | relógio lógico: %d%n",
+                            TimeUtil.format(requestTimestamp), request.getPayloadCase(),
+                            TimeUtil.currentLogicalClock());
 
-                Response response = handle(database, publications, request).toBuilder()
-                        .setTimestamp(TimeUtil.now())
-                        .build();
-                Database.saveMessage(database, "out", response.getPayloadCase()
-                        .name().toLowerCase(Locale.ROOT), response.toByteArray(), response.getTimestamp());
-                replies.send(response.toByteArray(), 0);
+                    receivedRequests++;
+                    boolean heartbeatDue = receivedRequests % 10 == 0;
+
+                    Database.saveMessage(database, "in", request.getPayloadCase()
+                            .name().toLowerCase(Locale.ROOT), rawRequest, requestTimestamp,
+                            request.getClock());
+
+                    Response response = handle(database, publications, request).toBuilder()
+                            .setTimestamp(TimeUtil.now())
+                            .setClock(TimeUtil.incrementLogicalClock())
+                            .build();
+                    Database.saveMessage(database, "out", response.getPayloadCase()
+                            .name().toLowerCase(Locale.ROOT), response.toByteArray(),
+                            response.getTimestamp(), response.getClock());
+                    replies.send(response.toByteArray(), 0);
+
+                    if (heartbeatDue) {
+                        int heartbeatStatus = reference.heartbeat(serverName);
+                        if (heartbeatStatus == 404) {
+                            int newRank = reference.register(serverName);
+                            System.out.printf("registrado novamente com rank %d%n", newRank);
+                        } else if (heartbeatStatus == 200) {
+                            System.out.printf("heartbeat ok | ajuste do relógio: %+.3f ms%n",
+                                    TimeUtil.physicalOffsetMillis());
+                        } else {
+                            System.out.println("heartbeat sem resposta da referência");
+                        }
+                    }
+                }
             }
         }
     }
@@ -153,6 +185,7 @@ final class Server {
                 .setSender(request.getUser())
                 .setMessage(request.getMessage())
                 .setTimestamp(sentAt)
+                .setClock(TimeUtil.incrementLogicalClock())
                 .build();
         publications.sendMore(channel);
         publications.send(event.toByteArray(), 0);

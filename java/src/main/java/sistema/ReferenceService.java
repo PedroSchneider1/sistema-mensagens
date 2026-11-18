@@ -18,6 +18,7 @@ import java.util.Map;
 final class ReferenceService {
     private static final long HEARTBEAT_TIMEOUT_SECONDS = 30;
     private static final Map<String, Integer> RANKS = new LinkedHashMap<>();
+    private static final Map<String, String> ADDRESSES = new LinkedHashMap<>();
     private static final Map<String, Instant> LAST_SEEN = new LinkedHashMap<>();
 
     private ReferenceService() {}
@@ -57,8 +58,10 @@ final class ReferenceService {
             case RANK -> {
                 String name = request.getRank().getName();
                 int rank = RANKS.computeIfAbsent(name, ignored -> RANKS.size() + 1);
+                ADDRESSES.put(name, request.getRank().getAddress());
                 LAST_SEEN.put(name, Instant.now());
-                System.out.printf("servidor '%s' registrado com rank %d%n", name, rank);
+                System.out.printf("servidor '%s' registrado com rank %d (%s)%n",
+                        name, rank, request.getRank().getAddress());
                 response.setRankReply(RankReply.newBuilder().setRank(rank));
             }
             case LIST -> {
@@ -67,7 +70,8 @@ final class ReferenceService {
                         .sorted(Comparator.comparingInt(RANKS::get))
                         .forEach(name -> servers.addServers(ServerInfo.newBuilder()
                                 .setName(name)
-                                .setRank(RANKS.get(name))));
+                                .setRank(RANKS.get(name))
+                                .setAddress(ADDRESSES.getOrDefault(name, ""))));
                 response.setListReply(servers);
             }
             case HEARTBEAT -> {

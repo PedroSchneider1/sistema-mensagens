@@ -1,3 +1,23 @@
+x-server: &server
+  build:
+    context: ..
+    dockerfile: container/Dockerfile.java
+  depends_on:
+    broker:
+      condition: service_started
+    proxy:
+      condition: service_started
+    reference:
+      condition: service_started
+    postgres:
+      condition: service_healthy
+
+x-server-environment: &server-environment
+  POSTGRES_HOST: postgres
+  POSTGRES_USER: ${POSTGRES_USER:-messaging}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messaging}
+  POSTGRES_DB: ${POSTGRES_DB:-messaging}
+
 services:
   broker:
     build:
@@ -44,29 +64,32 @@ services:
       timeout: 5s
       retries: 10
 
-  server:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
-    container_name: server
+  server_1:
+    <<: *server
+    container_name: server_1
     environment:
+      <<: *server-environment
       SERVER_NAME: server_1
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-messaging}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messaging}
-      POSTGRES_DB: ${POSTGRES_DB:-messaging}
+      SERVER_ADDRESS: tcp://server_1:5560
     command: ["server"]
-    depends_on:
-      broker:
-        condition: service_started
-      proxy:
-        condition: service_started
-      reference:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    deploy:
-      replicas: 1
+
+  server_2:
+    <<: *server
+    container_name: server_2
+    environment:
+      <<: *server-environment
+      SERVER_NAME: server_2
+      SERVER_ADDRESS: tcp://server_2:5560
+    command: ["server"]
+
+  server_3:
+    <<: *server
+    container_name: server_3
+    environment:
+      <<: *server-environment
+      SERVER_NAME: server_3
+      SERVER_ADDRESS: tcp://server_3:5560
+    command: ["server"]
 
   client_pedro:
     build:
@@ -78,7 +101,9 @@ services:
     command: ["client"]
     depends_on:
       - broker
-      - server
+      - server_1
+      - server_2
+      - server_3
       - proxy
     deploy:
       replicas: 1
@@ -93,7 +118,9 @@ services:
     command: ["client"]
     depends_on:
       - broker
-      - server
+      - server_1
+      - server_2
+      - server_3
       - proxy
     deploy:
       replicas: 1

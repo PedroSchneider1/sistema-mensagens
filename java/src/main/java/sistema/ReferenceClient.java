@@ -9,7 +9,6 @@ import sistema.proto.RankRequest;
 import sistema.proto.ServerListRequest;
 import sistema.proto.ServerInfo;
 
-import java.time.Instant;
 import java.util.List;
 
 /** Req-Rep client used by servers to register and heartbeat with the reference service. */
@@ -29,9 +28,12 @@ final class ReferenceClient implements AutoCloseable {
         requests.connect("tcp://reference:5559");
     }
 
-    int register(String serverName) throws Exception {
+    int register(String serverName, String serverAddress) throws Exception {
         while (true) {
-            RankRequest rank = RankRequest.newBuilder().setName(serverName).build();
+            RankRequest rank = RankRequest.newBuilder()
+                    .setName(serverName)
+                    .setAddress(serverAddress)
+                    .build();
             ReferenceResponse response = call(ReferenceRequest.newBuilder().setRank(rank).build());
             if (response == null) {
                 System.out.println("aguardando serviço de referência");
@@ -73,7 +75,6 @@ final class ReferenceClient implements AutoCloseable {
                 .setTimestamp(TimeUtil.now())
                 .setClock(TimeUtil.incrementLogicalClock())
                 .build();
-        Instant sentAt = Instant.now();
         requests.send(stamped.toByteArray(), 0);
         ZMQ.Poller poller = context.createPoller(1);
         poller.register(requests, ZMQ.Poller.POLLIN);
@@ -83,10 +84,8 @@ final class ReferenceClient implements AutoCloseable {
             return null;
         }
         byte[] rawResponse = requests.recv(0);
-        Instant receivedAt = Instant.now();
         ReferenceResponse response = ReferenceResponse.parseFrom(rawResponse);
         TimeUtil.observeLogicalClock(response.getClock());
-        TimeUtil.synchronizePhysicalClock(response.getTimestamp(), sentAt, receivedAt);
         return response;
     }
 

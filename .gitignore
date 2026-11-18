@@ -1,8 +1,11 @@
+parte*
+
 .env
 
 # proto compiling
 sistemas/
 java/target/
+__pycache__/
 java/dependency-reduced-pom.xml
 
 # Compiled class file

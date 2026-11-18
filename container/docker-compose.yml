@@ -1,109 +1,181 @@
-x-server: &server
+# Sistema misto: 3 servidores e 2 clientes em Python + 3 servidores e 2 clientes em Java.
+# Broker, proxy e serviço de referência são únicos e compartilhados (implementação Python).
+
+x-python: &python
+  build:
+    context: .
+    dockerfile: Dockerfile.python
+
+x-java: &java
   build:
     context: ..
     dockerfile: container/Dockerfile.java
-  depends_on:
-    broker:
-      condition: service_started
-    proxy:
-      condition: service_started
-    reference:
-      condition: service_started
+
+x-servers-depend-on: &servers-depend-on
+  broker:
+    condition: service_started
+  proxy:
+    condition: service_started
+  reference:
+    condition: service_started
+
+x-python-server: &python-server
+  <<: *python
+  depends_on: *servers-depend-on
+
+x-java-server: &java-server
+  <<: *java
+  depends_on: *servers-depend-on
 
 services:
+  # ---------- Serviços compartilhados ----------
   broker:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
+    <<: *python
     container_name: broker
-    command: ["broker"]
+    volumes:
+      - ../python/broker.py:/app/main.py
     ports:
       - 5555:5555
       - 5556:5556
 
   proxy:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
+    <<: *python
     container_name: proxy
     restart: unless-stopped
-    command: ["proxy"]
+    volumes:
+      - ../python/proxy.py:/app/main.py
 
   reference:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
+    <<: *python
     container_name: reference
-    command: ["reference"]
-
-  server_1:
-    <<: *server
-    container_name: server_1
+    restart: unless-stopped
     environment:
-      SERVER_NAME: server_1
-      SERVER_ADDRESS: tcp://server_1:5560
-      DB_PATH: /data/server_1.db
+      HEARTBEAT_TIMEOUT: 30
+    volumes:
+      - ../python/reference.py:/app/main.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+
+  # ---------- Servidores Python ----------
+  server_py_1:
+    <<: *python-server
+    container_name: server_py_1
+    environment:
+      SERVER_NAME: server_py_1
+      SERVER_ADDRESS: tcp://server_py_1:5560
+    volumes:
+      - ../python/server.py:/app/main.py
+      - ../python/store.py:/app/store.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+      - data_py_1:/data
+
+  server_py_2:
+    <<: *python-server
+    container_name: server_py_2
+    environment:
+      SERVER_NAME: server_py_2
+      SERVER_ADDRESS: tcp://server_py_2:5560
+    volumes:
+      - ../python/server.py:/app/main.py
+      - ../python/store.py:/app/store.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+      - data_py_2:/data
+
+  server_py_3:
+    <<: *python-server
+    container_name: server_py_3
+    environment:
+      SERVER_NAME: server_py_3
+      SERVER_ADDRESS: tcp://server_py_3:5560
+    volumes:
+      - ../python/server.py:/app/main.py
+      - ../python/store.py:/app/store.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+      - data_py_3:/data
+
+  # ---------- Servidores Java ----------
+  server_java_1:
+    <<: *java-server
+    container_name: server_java_1
+    environment:
+      SERVER_NAME: server_java_1
+      SERVER_ADDRESS: tcp://server_java_1:5560
+      DB_PATH: /data/server_java_1.db
     command: ["server"]
     volumes:
-      - data_1:/data
+      - data_java_1:/data
 
-  server_2:
-    <<: *server
-    container_name: server_2
+  server_java_2:
+    <<: *java-server
+    container_name: server_java_2
     environment:
-      SERVER_NAME: server_2
-      SERVER_ADDRESS: tcp://server_2:5560
-      DB_PATH: /data/server_2.db
+      SERVER_NAME: server_java_2
+      SERVER_ADDRESS: tcp://server_java_2:5560
+      DB_PATH: /data/server_java_2.db
     command: ["server"]
     volumes:
-      - data_2:/data
+      - data_java_2:/data
 
-  server_3:
-    <<: *server
-    container_name: server_3
+  server_java_3:
+    <<: *java-server
+    container_name: server_java_3
     environment:
-      SERVER_NAME: server_3
-      SERVER_ADDRESS: tcp://server_3:5560
-      DB_PATH: /data/server_3.db
+      SERVER_NAME: server_java_3
+      SERVER_ADDRESS: tcp://server_java_3:5560
+      DB_PATH: /data/server_java_3.db
     command: ["server"]
     volumes:
-      - data_3:/data
+      - data_java_3:/data
 
-  client_pedro:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
-    container_name: client_pedro
+  # ---------- Clientes Python ----------
+  client_py_pedro:
+    <<: *python
+    container_name: client_py_pedro
     environment:
       BOT_USER: pedro_client
-    command: ["client"]
-    depends_on:
+    volumes:
+      - ../python/client.py:/app/main.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+    depends_on: &clients-depend-on
       - broker
-      - server_1
-      - server_2
-      - server_3
       - proxy
-    deploy:
-      replicas: 1
+      - server_py_1
+      - server_py_2
+      - server_py_3
+      - server_java_1
+      - server_java_2
+      - server_java_3
 
-  client_gabriel:
-    build:
-      context: ..
-      dockerfile: container/Dockerfile.java
-    container_name: client_gabriel
+  client_py_gabriel:
+    <<: *python
+    container_name: client_py_gabriel
     environment:
       BOT_USER: gabriel_client
+    volumes:
+      - ../python/client.py:/app/main.py
+      - ../python/message_pb2.py:/app/message_pb2.py
+    depends_on: *clients-depend-on
+
+  # ---------- Clientes Java ----------
+  client_java_pedro:
+    <<: *java
+    container_name: client_java_pedro
+    environment:
+      BOT_USER: pedro_java
     command: ["client"]
-    depends_on:
-      - broker
-      - server_1
-      - server_2
-      - server_3
-      - proxy
-    deploy:
-      replicas: 1
+    depends_on: *clients-depend-on
+
+  client_java_gabriel:
+    <<: *java
+    container_name: client_java_gabriel
+    environment:
+      BOT_USER: gabriel_java
+    command: ["client"]
+    depends_on: *clients-depend-on
 
 volumes:
-  data_1:
-  data_2:
-  data_3:
+  data_py_1:
+  data_py_2:
+  data_py_3:
+  data_java_1:
+  data_java_2:
+  data_java_3:

@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package message;
 
+// Usadas só pelo Java (o Python ignora)
+option java_package = "sistema.proto";
+option java_multiple_files = true;
+
 import "google/protobuf/timestamp.proto";
 
 // ---------- Envelopes ----------

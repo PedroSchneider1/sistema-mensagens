@@ -37,7 +37,7 @@ import java.util.Set;
 
 /** Multi-master server with active replication, repair, and session consistency. */
 final class Server {
-    private static final Set<String> USERS = Set.of("pedro_client", "gabriel_client");
+    private static final Set<String> USERS = Set.of("pedro_client", "gabriel_client", "pedro_java", "gabriel_java");
     private static final int HEARTBEAT_EVERY = 10;
     private static final int SYNC_EVERY = 15;
     private static final long SESSION_WAIT_MILLIS = 3000;

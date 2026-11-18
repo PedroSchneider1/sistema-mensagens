@@ -5,13 +5,15 @@ option java_multiple_files = true;
 import "google/protobuf/timestamp.proto";
 message Request {
   google.protobuf.Timestamp timestamp = 1;
-  oneof payload { ConnRequest conn = 2; LoginRequest login = 3; CreateChannelRequest create_channel = 4; ListChannelsRequest list_channels = 5; PublishRequest publish = 6; }
+  oneof payload { ConnRequest conn = 2; LoginRequest login = 3; CreateChannelRequest create_channel = 4; ListChannelsRequest list_channels = 5; PublishRequest publish = 6; GetHistoryRequest get_history = 8; }
   int64 clock = 7;
+  map<string, int64> vector = 9;
 }
 message Response {
   google.protobuf.Timestamp timestamp = 1;
-  oneof payload { ConnReply conn_reply = 2; LoginReply login_reply = 3; CreateChannelReply create_channel_reply = 4; ErrorReply error = 5; ListChannelsReply list_channels_reply = 6; PublishReply publish_reply = 7; }
+  oneof payload { ConnReply conn_reply = 2; LoginReply login_reply = 3; CreateChannelReply create_channel_reply = 4; ErrorReply error = 5; ListChannelsReply list_channels_reply = 6; PublishReply publish_reply = 7; GetHistoryReply get_history_reply = 9; }
   int64 clock = 8;
+  map<string, int64> vector = 10;
 }
 message ConnRequest { string message = 1; google.protobuf.Timestamp timestamp = 2; }
 message ConnReply { string message = 1; google.protobuf.Timestamp timestamp = 2; }
@@ -24,7 +26,10 @@ message ListChannelsReply { repeated string channels = 1; google.protobuf.Timest
 message PublishRequest { string user = 1; string channel = 2; string message = 3; google.protobuf.Timestamp timestamp = 4; }
 message PublishReply { int32 status = 1; google.protobuf.Timestamp timestamp = 2; }
 message Publication { string channel = 1; string sender = 2; string message = 3; google.protobuf.Timestamp timestamp = 4; int64 clock = 5; }
-message ErrorReply { string error = 1; google.protobuf.Timestamp timestamp = 2; }
+message ErrorReply { string error = 1; google.protobuf.Timestamp timestamp = 2; int32 status = 3; }
+message GetHistoryRequest { string channel = 1; google.protobuf.Timestamp timestamp = 2; }
+message HistoryEntry { string sender = 1; string message = 2; google.protobuf.Timestamp timestamp = 3; int64 clock = 4; string origin = 5; int64 seq = 6; }
+message GetHistoryReply { int32 status = 1; repeated HistoryEntry messages = 2; google.protobuf.Timestamp timestamp = 3; }
 
 message ReferenceRequest {
   google.protobuf.Timestamp timestamp = 1;
@@ -58,6 +63,7 @@ message ServerRequest {
   oneof payload {
     ClockRequest clock_request = 3;
     ElectionRequest election = 4;
+    SyncRequest sync = 5;
   }
 }
 message ServerResponse {
@@ -66,6 +72,7 @@ message ServerResponse {
   oneof payload {
     ClockReply clock_reply = 3;
     ElectionReply election_reply = 4;
+    SyncReply sync_reply = 5;
   }
 }
 message ClockRequest {}
@@ -76,4 +83,34 @@ message CoordinatorAnnouncement {
   string name = 1;
   google.protobuf.Timestamp timestamp = 2;
   int64 clock = 3;
+}
+
+message ReplicaEntry {
+  string origin = 1;
+  int64 seq = 2;
+  int64 clock = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  oneof payload {
+    ChannelCreated channel = 5;
+    MessagePublished publication = 6;
+  }
+}
+message ChannelCreated { string name = 1; }
+message MessagePublished { string channel = 1; string sender = 2; string message = 3; }
+message LogEntry {
+  string origin = 1;
+  int64 seq = 2;
+  string direction = 3;
+  string kind = 4;
+  bytes payload = 5;
+  google.protobuf.Timestamp message_ts = 6;
+  int64 clock = 7;
+}
+message SyncRequest {
+  map<string, int64> vector = 1;
+  map<string, int64> log_vector = 2;
+}
+message SyncReply {
+  repeated ReplicaEntry entries = 1;
+  repeated LogEntry log_entries = 2;
 }

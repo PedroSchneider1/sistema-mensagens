@@ -9,14 +9,6 @@ x-server: &server
       condition: service_started
     reference:
       condition: service_started
-    postgres:
-      condition: service_healthy
-
-x-server-environment: &server-environment
-  POSTGRES_HOST: postgres
-  POSTGRES_USER: ${POSTGRES_USER:-messaging}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messaging}
-  POSTGRES_DB: ${POSTGRES_DB:-messaging}
 
 services:
   broker:
@@ -46,50 +38,38 @@ services:
     container_name: reference
     command: ["reference"]
 
-  postgres:
-    image: postgres:17-alpine
-    container_name: postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-messaging}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messaging}
-      POSTGRES_DB: ${POSTGRES_DB:-messaging}
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   server_1:
     <<: *server
     container_name: server_1
     environment:
-      <<: *server-environment
       SERVER_NAME: server_1
       SERVER_ADDRESS: tcp://server_1:5560
+      DB_PATH: /data/server_1.db
     command: ["server"]
+    volumes:
+      - data_1:/data
 
   server_2:
     <<: *server
     container_name: server_2
     environment:
-      <<: *server-environment
       SERVER_NAME: server_2
       SERVER_ADDRESS: tcp://server_2:5560
+      DB_PATH: /data/server_2.db
     command: ["server"]
+    volumes:
+      - data_2:/data
 
   server_3:
     <<: *server
     container_name: server_3
     environment:
-      <<: *server-environment
       SERVER_NAME: server_3
       SERVER_ADDRESS: tcp://server_3:5560
+      DB_PATH: /data/server_3.db
     command: ["server"]
+    volumes:
+      - data_3:/data
 
   client_pedro:
     build:
@@ -126,4 +106,6 @@ services:
       replicas: 1
 
 volumes:
-  pgdata:
+  data_1:
+  data_2:
+  data_3:

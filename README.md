@@ -1,6 +1,6 @@
 # Sistema de troca de mensagens
 
-Protótipo de um sistema de troca de mensagens entre bots. O cliente, os servidores e o serviço de referência são implementados em Java 17; o broker e os proxies continuam em Python. As mensagens usam ZeroMQ e Protocol Buffers, definidos em `java/src/main/proto/message.proto` (compatível com `src/message.proto`), e carregam timestamp e relógio lógico. O serviço de referência atribui ranks e mantém a lista de servidores ativos por heartbeat. Os servidores elegem um coordenador pelo algoritmo bully e sincronizam seus relógios pelo algoritmo de Berkeley. O PostgreSQL persiste logins aceitos, canais, mensagens trocadas e publicações.
+Protótipo de um sistema de troca de mensagens entre bots. Clientes, servidores e o serviço de referência são implementados em Java 17; o broker e o proxy continuam em Python. ZeroMQ faz a comunicação e Protocol Buffers define as mensagens em `java/src/main/proto/message.proto` (compatível com `src/message.proto`).
 
 ## Executar
 
@@ -10,15 +10,28 @@ Na raiz do repositório:
 docker compose -f container/docker-compose.yml up --build
 ```
 
-O compose inicia o broker Req-Rep, o proxy Pub-Sub, o serviço de referência, o PostgreSQL, três servidores e os clientes `pedro_client` e `gabriel_client`. Cada cliente faz login, garante pelo menos cinco canais, assina três canais e publica mensagens aleatórias continuamente. As mensagens recebidas são exibidas com o canal, remetente, timestamps e relógio lógico. Cada servidor envia heartbeat a cada dez requisições recebidas e sincroniza o relógio a cada quinze. Os usuários aceitos estão definidos em `java/src/main/java/sistema/Server.java`; canais duplicados retornam status 409.
+O Compose inicia o broker Req-Rep, o proxy Pub-Sub, o serviço de referência, três servidores e dois clientes. Cada servidor tem um banco SQLite próprio em um volume persistente. Para acompanhar os servidores:
 
-Os servidores persistem as requisições e respostas serializadas em Protobuf na tabela `messages`, e as publicações na tabela `publications`. O volume `pgdata` mantém esses dados entre reinicializações. O proxy Pub-Sub encaminha publicações pela porta 5557 (XSUB) e anúncios do coordenador no tópico `servers` para os servidores inscritos e publicações pela porta 5558 (XPUB) para os clientes.
+```sh
+docker compose -f container/docker-compose.yml logs -f server_1 server_2 server_3
+```
 
-Para parar os serviços, use `Ctrl+C`. Para apagar também os dados persistidos durante os testes, execute `docker compose -f container/docker-compose.yml down -v`.
+Para parar, use `Ctrl+C`. `docker compose -f container/docker-compose.yml down -v` também apaga os volumes e os dados.
+
+## Replicação e consistência (parte 5)
+
+O broker distribui cada requisição por round-robin, então uma mesma sessão pode chegar a servidores diferentes. Para que todos respondam com os mesmos dados, usamos **replicação ativa multi-master**: qualquer servidor pode aceitar uma escrita, gravá-la no seu SQLite e publicá-la no tópico `replica`. Os outros servidores aplicam a alteração localmente.
+
+Cada alteração de estado (criação de canal ou publicação) recebe um identificador `(origem, sequência)`. A sequência cresce sem lacunas dentro de cada origem, o que permite ignorar duplicatas com segurança. O histórico é ordenado em todas as réplicas por `(relógio lógico, origem, sequência)`. O sistema também replica, pelo tópico `eventlog`, o registro serializado das requisições e respostas trocadas com os clientes.
+
+Pub/Sub pode perder mensagens enquanto um servidor está indisponível. Por isso, além da replicação imediata, cada servidor busca as entradas que faltam nos pares: ao iniciar, quando detecta uma lacuna e periodicamente. Isso também permite que uma instância recupere as próprias entradas depois de reiniciar com um volume persistente.
+
+Como a replicação é assíncrona, o cliente mantém um vetor de versões por sessão. Envia esse vetor em cada requisição e combina com o vetor devolvido pelo servidor. Antes de responder, o servidor espera até três segundos para ter aplicado o estado exigido pelo vetor. Se continuar atrasado, responde com status 503 e o cliente repete a requisição. Esse mecanismo preserva leituras monotônicas, escritas monotônicas, leitura do que foi escrito e escritas que seguem leituras, conforme a implementação Python.
+
+Os servidores também mantêm relógios lógicos, elegem coordenador pelo algoritmo bully e sincronizam o relógio físico pelo algoritmo de Berkeley. O serviço de referência atribui ranks, lista servidores ativos e acompanha heartbeats.
 
 ## Componentes
 
-- `java/`: aplicação Java separada em `Client`, `Server`, `ReferenceService`, `ReferenceClient`, `Database` e `TimeUtil`, além da entrada `Main`; as classes Protobuf são geradas via Maven.
-- `src/broker.py` e `src/proxy.py`: encaminhamento de requisições e proxy de publicação ZeroMQ.
-- `container/docker-compose.yml`: serviços de execução e banco de dados.
-
+- `java/`: cliente, servidor, serviço e cliente de referência, armazenamento SQLite e entrada `Main`; Maven gera as classes Protobuf.
+- `src/broker.py` e `src/proxy.py`: encaminhamento Req-Rep e proxy Pub-Sub em Python.
+- `container/docker-compose.yml`: configuração para executar o sistema.

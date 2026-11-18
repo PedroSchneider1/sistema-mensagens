@@ -46,17 +46,11 @@ final class ReferenceClient implements AutoCloseable {
     }
 
     List<ServerInfo> listServers() throws Exception {
-        while (true) {
-            ReferenceResponse response = call(ReferenceRequest.newBuilder()
-                    .setList(ServerListRequest.getDefaultInstance())
-                    .build());
-            if (response == null) {
-                continue;
-            }
-            if (response.hasListReply()) {
-                return response.getListReply().getServersList();
-            }
-        }
+        ReferenceResponse response = call(ReferenceRequest.newBuilder()
+                .setList(ServerListRequest.getDefaultInstance())
+                .build());
+        return response != null && response.hasListReply()
+                ? response.getListReply().getServersList() : null;
     }
 
     int heartbeat(String serverName) throws Exception {

@@ -3,6 +3,8 @@ package sistema;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sistema.proto.CreateChannelRequest;
+import sistema.proto.GetHistoryRequest;
+import sistema.proto.HistoryEntry;
 import sistema.proto.ListChannelsRequest;
 import sistema.proto.LoginRequest;
 import sistema.proto.Publication;
@@ -13,6 +15,8 @@ import sistema.proto.Response;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,6 +31,9 @@ final class Client {
             "olá", "tudo", "bem", "aqui", "canal", "teste", "mensagem",
             "ok", "hoje", "dados", "bot", "sistema"
     };
+    private static final Map<String, Long> sessionVector = new HashMap<>();
+    private static final Map<String, Integer> historySizes = new HashMap<>();
+    private static final Map<String, Integer> publishedCounts = new HashMap<>();
 
     private Client() {}
 
@@ -120,7 +127,10 @@ final class Client {
                         .getPublishReply().getStatus();
                 if (status != 200) {
                     System.out.printf("erro ao publicar (status %d)%n", status);
+                } else {
+                    publishedCounts.merge(channel, 1, Integer::sum);
                 }
+                inspectHistory(requests, channel, username);
 
                 long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
                 pump(context, subscriptions, Math.max(0, MESSAGE_INTERVAL_MILLIS - elapsedMillis));
@@ -129,14 +139,48 @@ final class Client {
     }
 
     private static Response call(ZMQ.Socket requests, Request request) throws Exception {
-        Request stamped = request.toBuilder().setTimestamp(TimeUtil.now()).build();
-        stamped = stamped.toBuilder()
-                .setClock(TimeUtil.incrementLogicalClock())
-                .build();
-        requests.send(stamped.toByteArray(), 0);
-        Response response = Response.parseFrom(requests.recv(0));
-        TimeUtil.observeLogicalClock(response.getClock());
-        return response;
+        while (true) {
+            Request stamped = request.toBuilder().setTimestamp(TimeUtil.now())
+                    .setClock(TimeUtil.incrementLogicalClock()).clearVector()
+                    .putAllVector(sessionVector).build();
+            requests.send(stamped.toByteArray(), 0);
+            Response response = Response.parseFrom(requests.recv(0));
+            TimeUtil.observeLogicalClock(response.getClock());
+            if (response.hasError() && response.getError().getStatus() == 503) {
+                System.out.println("servidor atrasado; repetindo requisição após 500 ms");
+                Thread.sleep(500);
+                continue;
+            }
+            response.getVectorMap().forEach((origin, seq) ->
+                    sessionVector.merge(origin, seq, Math::max));
+            return response;
+        }
+    }
+
+    private static void inspectHistory(ZMQ.Socket requests, String channel, String username) throws Exception {
+        GetHistoryRequest historyRequest = GetHistoryRequest.newBuilder().setChannel(channel).build();
+        Response response = call(requests,
+                Request.newBuilder().setGetHistory(historyRequest).build());
+        if (!response.hasGetHistoryReply() || response.getGetHistoryReply().getStatus() != 200) {
+            System.out.printf("AVISO: histórico de '%s' indisponível (404)%n", channel);
+            return;
+        }
+        List<HistoryEntry> entries = response.getGetHistoryReply().getMessagesList();
+        int previous = historySizes.getOrDefault(channel, 0);
+        if (entries.size() < previous) {
+            System.out.printf("AVISO: histórico de '%s' encolheu: %d -> %d%n",
+                    channel, previous, entries.size());
+        }
+        historySizes.put(channel, Math.max(previous, entries.size()));
+        long ownMessages = entries.stream().filter(entry -> entry.getSender().equals(username))
+                .count();
+        int expectedOwnMessages = publishedCounts.getOrDefault(channel, 0);
+        if (ownMessages < expectedOwnMessages) {
+            System.out.printf("AVISO: histórico de '%s' tem %d das %d mensagens publicadas nesta sessão%n",
+                    channel, ownMessages, expectedOwnMessages);
+        }
+        System.out.printf("histórico '%s': %d mensagens | vetor da sessão: %s%n",
+                channel, entries.size(), sessionVector);
     }
 
     private static List<String> listChannels(ZMQ.Socket requests) throws Exception {
